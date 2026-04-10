@@ -27,7 +27,7 @@ unzip vosk-model-small-ru-0.22.zip -d models/
 ### Установка
 
 ```bash
-python -m venv venv
+python3.9 -m venv venv
 source venv/bin/activate  # Linux/macOS
 .venv\Scripts\activate   # Windows
 ```
@@ -42,8 +42,9 @@ python vosk_server.py ../models/vosk-model-ru-0.42
 
 ### Запуск frontend
 
-В отдельном терминале из папки vosk-react
+В отдельном терминале из папки frontend
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
