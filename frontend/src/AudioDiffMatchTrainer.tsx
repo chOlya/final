@@ -32,6 +32,7 @@ export default function AudioFileRecognizer() {
   });
 
   const [sentences, setSentences] = useState<any[]>([]);
+  const [referenceText, setReferenceText] = useState('');
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -47,9 +48,6 @@ export default function AudioFileRecognizer() {
   const wordColorsRef = useRef<string[]>([]);
   // После финализации цвет не меняется (кроме того что CURRENT только для «живого» слова)
   const finalStateRef = useRef<FinalKind[]>([]);
-
-  const referenceText =
-    'добрый день Десятый вопрос Добрый день, Самуил Значит, ну у нас в этот момент растения отсутствуют значит, но в ближайшее время вот у нас Клейтон Андерсон у нас американский коллега будет иметь растения у себя в оранжерее, к сожалению у нас оранжерея на нашей экспедиции без растений, у нас другой эксперимент идет и кроме этого у нас живут улитки сейчас на станции Да, ждем вопросов'
 
   const referenceWordsRef = useRef<string[]>([]);     // все слова эталона по порядку
 
@@ -121,16 +119,12 @@ export default function AudioFileRecognizer() {
     return applyNoiseReduction(audioBuffer);
   };
 
-  useEffect(() => {
-    // Настраиваем diff-match-patch
-    dmpRef.current = new diff_match_patch();
-    dmpRef.current.Diff_Timeout = 1.5;
-    dmpRef.current.Match_Threshold = 0.3;
-    dmpRef.current.Match_Distance = 500;
-    dmpRef.current.Patch_DeleteThreshold = 0.4;
+  // Обновление эталонного текста при его изменении
+  const updateReferenceText = (newText: string) => {
+    setReferenceText(newText);
 
     // Бьём эталонный текст на предложения и слова
-    const sentencesArray = segmentTextBySentences(referenceText);
+    const sentencesArray = segmentTextBySentences(newText);
     setSentences(sentencesArray);
 
     const allWords: string[] = [];
@@ -146,6 +140,18 @@ export default function AudioFileRecognizer() {
     wordColorsRef.current = initialColors;
     finalStateRef.current = Array(allWords.length).fill('pending');
     addDebugLog(`Текст разбит на ${sentencesArray.length} предложений (${allWords.length} слов)`);
+  };
+
+  useEffect(() => {
+    // Настраиваем diff-match-patch
+    dmpRef.current = new diff_match_patch();
+    dmpRef.current.Diff_Timeout = 1.5;
+    dmpRef.current.Match_Threshold = 0.3;
+    dmpRef.current.Match_Distance = 500;
+    dmpRef.current.Patch_DeleteThreshold = 0.4;
+
+    // Бьём эталонный текст на предложения и слова
+    updateReferenceText(referenceText);
   }, []);
 
   // ---------- Очистка при размонтировании ----------
@@ -1267,6 +1273,33 @@ export default function AudioFileRecognizer() {
       <h1>Речевой тренажер (diff → match + стабильная подсветка)</h1>
 
       {renderLegend()}
+
+      {/* Поле для ввода эталонного текста */}
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+          Эталонный текст:
+        </label>
+        <textarea
+          value={referenceText}
+          onChange={(e) => updateReferenceText(e.target.value)}
+          disabled={isProcessing}
+          style={{
+            width: '100%',
+            padding: '0.5rem',
+            fontSize: '1rem',
+            fontFamily: 'inherit',
+            border: `2px solid ${isProcessing ? '#ccc' : '#4CAF50'}`,
+            borderRadius: '8px',
+            resize: 'vertical',
+            minHeight: '120px',
+            background: isProcessing ? '#f5f5f5' : 'white'
+          }}
+          placeholder="Введите эталонный текст здесь..."
+        />
+        <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.3rem' }}>
+          Количество слов: {referenceWordsRef.current.length}
+        </div>
+      </div>
 
       <div
         style={{
