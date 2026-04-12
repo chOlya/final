@@ -1267,313 +1267,392 @@ export default function AudioFileRecognizer() {
   };
 
   // ---------- Основной JSX ----------
-
   return (
-    <div style={{ padding: '1rem', margin: '0 auto', maxWidth: '1200px' }}>
-      <h1>Речевой тренажер (diff → match + стабильная подсветка)</h1>
+    <div style={{ minHeight: '100vh', background: '#f1f5f9', padding: 0, margin: 0 }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '1rem' }}>
 
-      {renderLegend()}
-
-      {/* Поле для ввода эталонного текста */}
-      <div style={{ marginBottom: '1rem' }}>
-        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-          Эталонный текст:
-        </label>
-        <textarea
-          value={referenceText}
-          onChange={(e) => updateReferenceText(e.target.value)}
-          disabled={isProcessing}
-          style={{
-            width: '100%',
-            padding: '0.5rem',
-            fontSize: '1rem',
-            fontFamily: 'inherit',
-            border: `2px solid ${isProcessing ? '#ccc' : '#4CAF50'}`,
-            borderRadius: '8px',
-            resize: 'vertical',
-            minHeight: '120px',
-            background: isProcessing ? '#f5f5f5' : 'white'
-          }}
-          placeholder="Введите эталонный текст здесь..."
-        />
-        <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.3rem' }}>
-          Количество слов: {referenceWordsRef.current.length}
-        </div>
-      </div>
-
-      <div
-        style={{
-          marginBottom: '1rem',
-          padding: '0.5rem',
-          background: '#2d2d2d',
-          color: '#f0f0f0',
-          borderRadius: '6px',
-          fontSize: '0.8rem',
-          maxHeight: '200px',
-          overflowY: 'auto',
-          fontFamily: 'monospace'
-        }}
-      >
-        {debugLog.map((log, index) => (
-          <div
-            key={index}
-            style={{
-              padding: '0.1rem 0',
-              borderBottom: index < debugLog.length - 1 ? '1px solid #444' : 'none'
-            }}
-          >
-            {log}
-          </div>
-        ))}
-      </div>
-
-      {objectiveStats.totalReference > 0 && (
-        <div
-          style={{
-            marginBottom: '1rem',
-            padding: '1rem',
-            background: '#e8eaf6',
-            borderRadius: '8px'
-          }}
-        >
-          <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>Статистика:</div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-              gap: '1rem'
-            }}
-          >
-            <div style={{ color: COLORS.CORRECT }}>Правильно: {objectiveStats.correct}</div>
-            <div style={{ color: COLORS.ERROR }}>С ошибкой: {objectiveStats.error}</div>
-            <div style={{ color: COLORS.MISSED }}>Пропущено: {objectiveStats.missed}</div>
-            <div style={{ color: '#ff8f00' }}>Лишние: {objectiveStats.extra}</div>
-            <div style={{ color: '#00796b', fontWeight: 'bold' }}>
-              Точность: {objectiveStats.accuracy.toFixed(1)}%
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isProcessing && (
-        <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f0f0f0', borderRadius: '8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span>{recognitionStatus}</span>
-            <span>{progress}%</span>
-          </div>
-          <div style={{ height: '10px', background: '#e0e0e0', borderRadius: '5px', overflow: 'hidden' }}>
-            <div
-              style={{
-                height: '100%',
-                background: '#4CAF50',
-                width: `${progress}%`,
-                transition: 'width 0.3s ease'
-              }}
-            />
-          </div>
-          {totalSegments > 0 && (
-            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#666' }}>
-              Чанк {currentSegment} из {totalSegments} • Распознано слов: {allResultsRef.current.length}
-            </div>
-          )}
-        </div>
-      )}
-
-      {partial && isProcessing && (
-        <div
-          style={{
-            marginBottom: '1rem',
-            padding: '0.5rem',
-            background: '#fff3e0',
-            borderRadius: '6px',
-            fontStyle: 'italic',
-            color: '#ff9800'
-          }}
-        >
-          Текущий фрагмент: "{partial}"
-        </div>
-      )}
-
-      {/* Зона загрузки аудио */}
-      <div
-        style={{
-          border: `3px ${isProcessing ? 'solid' : 'dashed'} ${isProcessing ? '#ff9800' : '#4CAF50'}`,
-          padding: '1rem',
-          borderRadius: '12px',
-          textAlign: 'center',
-          cursor: isProcessing ? 'wait' : 'pointer',
-          background: isProcessing ? '#fff3e0' : '#e8f5e8',
-          marginBottom: '2rem'
-        }}
-        onClick={() => !isProcessing && document.getElementById('file-input')?.click()}
-      >
-        <input
-          id="file-input"
-          type="file"
-          accept="audio/*,audio/wav,audio/mp3,audio/m4a"
-          onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])}
-          disabled={isProcessing}
-          style={{ display: 'none' }}
-        />
-
-        {isProcessing ? (
+        {/* Header */}
+        <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
-            <div style={{ fontSize: '3rem', animation: 'spin 1s linear infinite' }}>。</div>
-            <div style={{ fontSize: '1.2rem', marginTop: '1rem' }}>{recognitionStatus}</div>
-            {totalSegments > 0 && (
-              <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
-                Чанк {currentSegment} из {totalSegments}
+            <h1 style={{ fontSize: '1.75rem', fontWeight: '600', color: '#0f172a', letterSpacing: '-0.02em', marginBottom: '0.25rem' }}>
+              Речевой тренажер
+            </h1>
+            <div style={{ width: '50px', height: '3px', background: '#3b82f6' }} />
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            {[
+              { color: '#3b82f6', label: 'Текущее' },
+              { color: '#10b981', label: 'Правильно' },
+              { color: '#f59e0b', label: 'Ошибка' },
+              { color: '#ef4444', label: 'Пропуск' },
+              { color: '#cbd5e1', label: 'Ожидание' }
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: item.color }} />
+                <span style={{ fontSize: '0.75rem', fontWeight: '500', color: '#475569' }}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.25rem', marginBottom: '1.25rem', alignItems: 'start' }}>
+
+          <div style={{ minWidth: 0, overflow: 'hidden' }}>
+            {!file ? (
+              <div style={{
+                background: 'white',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                border: '1px solid #e2e8f0'
+              }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#475569', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Эталонный текст
+                </label>
+                <textarea
+                  value={referenceText}
+                  onChange={(e) => updateReferenceText(e.target.value)}
+                  disabled={isProcessing}
+                  style={{
+                    width: '100%',
+                    padding: '0.875rem',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '10px',
+                    fontSize: '1rem',
+                    lineHeight: '1.5',
+                    color: '#0f172a',
+                    background: isProcessing ? '#f8fafc' : 'white',
+                    resize: 'vertical',
+                    minHeight: '180px',
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Введите текст для анализа..."
+                />
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.75rem' }}>
+                  {referenceWordsRef.current.length} слов
+                </div>
+              </div>
+            ) : (
+              <div style={{
+                background: 'white',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Эталонный текст
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', background: '#f1f5f9', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>
+                    {referenceWordsRef.current.length} слов
+                  </div>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  overflowX: 'hidden'
+                }}>
+                  {referenceWordsRef.current.map((word, index) => {
+                    const color = wordColors[index] || COLORS.PENDING;
+                    const styles: Record<string, React.CSSProperties> = {
+                      [COLORS.CURRENT]: { background: '#dbeafe', color: '#1e40af', borderColor: '#bfdbfe', fontWeight: 600 },
+                      [COLORS.CORRECT]: { background: '#d1fae5', color: '#065f46', borderColor: '#a7f3d0' },
+                      [COLORS.ERROR]: { background: '#fed7aa', color: '#9a3412', borderColor: '#fdba74' },
+                      [COLORS.MISSED]: { background: '#fee2e2', color: '#991b1b', borderColor: '#fecaca' },
+                      [COLORS.PENDING]: { background: '#f8fafc', color: '#cbd5e1', borderColor: '#e2e8f0' }
+                    };
+                    return (
+                      <span
+                        key={index}
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: '8px',
+                          fontSize: '0.9rem',
+                          fontWeight: color === COLORS.CURRENT ? '600' : '400',
+                          border: '1px solid',
+                          transition: 'all 0.15s ease',
+                          whiteSpace: 'nowrap',
+                          ...styles[color],
+                          ...(color === COLORS.CURRENT ? { boxShadow: '0 0 0 2px #93c5fd', transform: 'scale(1.02)' } : {})
+                        }}
+                      >
+                        {word}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
-        ) : file ? (
-          <div>
-            <div style={{ fontSize: '3rem' }}>✓</div>
-            <div style={{ fontSize: '1.2rem', color: '#2e7d32', marginTop: '0.5rem' }}>{file.name}</div>
-          </div>
-        ) : (
-          <div>
-            <div style={{ fontSize: '4rem' }}>+</div>
-            <div style={{ fontSize: '1.3rem', marginTop: '1rem' }}>Загрузите аудиофайл</div>
-          </div>
-        )}
-      </div>
 
-      {file && (
-        <div style={{ marginBottom: '2rem', padding: '0.5rem', background: '#f0f0f0', borderRadius: '12px' }}>
-          <div style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>
-            Аудио: <strong>{file.name}</strong>
-            {audioDuration > 0 && (
-              <span style={{ marginLeft: '1rem', fontSize: '0.9rem', color: '#666' }}>
-                {audioDuration.toFixed(1)} сек
-              </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', minWidth: 0 }}>
+
+            {/* Статистика */}
+            {objectiveStats.totalReference > 0 && (
+              <div style={{
+                background: 'white',
+                borderRadius: '12px',
+                padding: '0.875rem',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.6rem' }}>
+                  <div style={{ textAlign: 'center', padding: '0.6rem', background: '#f8fafc', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#10b981' }}>{objectiveStats.correct}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#475569' }}>Правильно</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '0.6rem', background: '#f8fafc', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#f59e0b' }}>{objectiveStats.error}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#475569' }}>С ошибкой</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '0.6rem', background: '#f8fafc', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#ef4444' }}>{objectiveStats.missed}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#475569' }}>Пропущено</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '0.6rem', background: '#f8fafc', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#8b5cf6' }}>{objectiveStats.extra}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#475569' }}>Лишние</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: '0.6rem', textAlign: 'center', padding: '0.5rem', background: '#eff6ff', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#2563eb' }}>{objectiveStats.accuracy.toFixed(0)}%</div>
+                  <div style={{ fontSize: '0.65rem', color: '#475569' }}>Точность</div>
+                </div>
+              </div>
+            )}
+
+            {/* Загрузка аудио */}
+            <div
+              onClick={() => !isProcessing && document.getElementById('file-input')?.click()}
+              style={{
+                border: `1.5px dashed ${isProcessing ? '#f59e0b' : file ? '#10b981' : '#cbd5e1'}`,
+                borderRadius: '12px',
+                padding: '1.25rem',
+                textAlign: 'center',
+                cursor: isProcessing ? 'default' : 'pointer',
+                background: isProcessing ? '#fffbeb' : file ? '#ecfdf5' : 'white',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <input id="file-input" type="file" accept="audio/*" onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])} disabled={isProcessing} style={{ display: 'none' }} />
+
+              {isProcessing ? (
+                <>
+                  <div style={{ display: 'inline-block', marginBottom: '0.5rem' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ animation: 'spin 1s linear infinite' }}>
+                      <circle cx="12" cy="12" r="10" stroke="#f59e0b" strokeWidth="2" strokeDasharray="30 30" strokeLinecap="round" fill="none" />
+                    </svg>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '500', color: '#92400e' }}>{recognitionStatus}</div>
+                  <div style={{ marginTop: '0.6rem' }}>
+                    <div style={{ height: '4px', background: '#fde68a', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: `${progress}%`, height: '100%', background: '#f59e0b', transition: 'width 0.3s' }} />
+                    </div>
+                  </div>
+                  {totalSegments > 0 && (
+                    <div style={{ fontSize: '0.7rem', color: '#b45309', marginTop: '0.4rem' }}>
+                      {currentSegment} / {totalSegments}
+                    </div>
+                  )}
+                </>
+              ) : file ? (
+                <>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="1.5" style={{ marginBottom: '0.4rem' }}>
+                    <path d="M3 15v3a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3v-3" stroke="currentColor" fill="none" />
+                    <path d="M7 9l5-5 5 5" stroke="currentColor" fill="none" strokeLinecap="round" />
+                    <path d="M12 4v12" stroke="currentColor" fill="none" strokeLinecap="round" />
+                  </svg>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '500', color: '#065f46' }}>{file.name}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '0.25rem' }}>{audioDuration.toFixed(1)} сек</div>
+                </>
+              ) : (
+                <>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" style={{ marginBottom: '0.4rem' }}>
+                    <path d="M3 15v3a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3v-3" stroke="currentColor" fill="none" />
+                    <path d="M7 9l5-5 5 5" stroke="currentColor" fill="none" strokeLinecap="round" />
+                    <path d="M12 4v12" stroke="currentColor" fill="none" strokeLinecap="round" />
+                  </svg>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '500', color: '#475569' }}>Загрузить аудио</div>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.25rem' }}>MP3, WAV, M4A</div>
+                </>
+              )}
+            </div>
+
+            {/* Аудио плеер */}
+            {file && (
+              <div style={{
+                background: 'white',
+                borderRadius: '12px',
+                padding: '0.6rem',
+                border: '1px solid #e2e8f0'
+              }}>
+                <audio
+                  ref={audioRef}
+                  controls
+                  src={getAudioUrl()}
+                  style={{ width: '100%', height: '44px' }}
+                  onPlay={handleAudioPlay}
+                  onPause={handleAudioPause}
+                  onEnded={handleAudioEnded}
+                  onLoadedMetadata={handleAudioLoadedMetadata}
+                />
+              </div>
+            )}
+
+            {/* Кнопка */}
+            {file && (
+              <button
+                onClick={handleNewAttempt}
+                disabled={isProcessing}
+                style={{
+                  width: '100%',
+                  padding: '0.7rem',
+                  background: isProcessing ? '#cbd5e1' : '#1e293b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: isProcessing ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.2s'
+                }}
+              >
+                {isProcessing ? 'Обработка...' : '+ Новая проверка'}
+              </button>
             )}
           </div>
+        </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <audio
-              key={audioUrlRef.current || 'audio'}
-              ref={audioRef}
-              controls
-              src={getAudioUrl()}
-              style={{ width: '100%', maxWidth: '800px' }}
-              preload="metadata"
-              onPlay={handleAudioPlay}
-              onPause={handleAudioPause}
-              onEnded={handleAudioEnded}
-              onLoadedMetadata={handleAudioLoadedMetadata}
-            />
+        {(!isProcessing && wordAnalysis.length > 0) && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
+
+            {/* Детальный анализ - компактная версия */}
+            <div style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '1rem',
+              border: '1px solid #e2e8f0',
+              minWidth: 0,
+              overflow: 'hidden'
+            }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: '600', color: '#475569', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Детальный анализ произношения
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '360px', overflowY: 'auto' }}>
+                {wordAnalysis.map((item, i) => {
+                  const expectedTimeSec = parseFloat(item.expectedTime);
+                  const actualTimeSec = item.actualTime ? parseFloat(item.actualTime) : null;
+                  const timeDiffSec = item.timeDiff ? parseFloat(item.timeDiff) : null;
+
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        padding: '0.5rem 0.65rem',
+                        background: '#f8fafc',
+                        borderRadius: '8px',
+                        borderLeft: `3px solid ${item.color}`
+                      }}
+                    >
+                      {/* Верхняя строка: номер, время, процент */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.65rem', color: '#64748b' }}>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                          <span style={{ fontWeight: '600' }}>#{item.position}</span>
+                          <span>⏱️ {expectedTimeSec.toFixed(1)}с</span>
+                          {actualTimeSec !== null && (
+                            <span>→ {actualTimeSec.toFixed(1)}с</span>
+                          )}
+                          {timeDiffSec !== null && (
+                            <span style={{ color: Math.abs(timeDiffSec) > 0.5 ? '#ef4444' : '#10b981' }}>
+                              {timeDiffSec > 0 ? '+' : ''}{timeDiffSec.toFixed(1)}с
+                            </span>
+                          )}
+                        </div>
+                        <span style={{
+                          fontWeight: '600',
+                          padding: '0.1rem 0.4rem',
+                          borderRadius: '4px',
+                          background: `${item.color}15`,
+                          color: item.color,
+                          fontSize: '0.65rem'
+                        }}>
+                          {item.similarity.toFixed(0)}%
+                        </span>
+                      </div>
+
+                      {/* Слова */}
+                      <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem', flexWrap: 'wrap', alignItems: 'baseline' }}>
+                        <span style={{ color: '#1e293b', fontWeight: '500' }}>📖 {item.expected}</span>
+                        <span style={{ color: '#cbd5e1' }}>→</span>
+                        <span style={{ color: '#f59e0b' }}>🎤 {item.actual}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Распознанный текст */}
+            {transcription && (
+              <div style={{
+                background: 'white',
+                borderRadius: '12px',
+                padding: '1rem',
+                border: '1px solid #e2e8f0',
+                minWidth: 0,
+                overflow: 'hidden'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.3rem' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: '600', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Распознанный текст
+                  </div>
+                  <div style={{ fontSize: '0.6rem', color: '#94a3b8', background: '#f1f5f9', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>
+                    {wordTimestamps.length} слов
+                  </div>
+                </div>
+                <div style={{
+                  fontSize: '0.85rem',
+                  lineHeight: '1.5',
+                  color: '#334155',
+                  maxHeight: '360px',
+                  overflowY: 'auto',
+                  wordBreak: 'break-word',
+                  whiteSpace: 'pre-wrap'
+                }}>
+                  {transcription}
+                </div>
+              </div>
+            )}
           </div>
+        )}
+        {/* Debug лог */}
+        <div style={{
+          marginTop: '0.875rem',
+          padding: '0.6rem 0.875rem',
+          background: '#f1f5f9',
+          borderRadius: '8px',
+          fontSize: '0.7rem',
+          fontFamily: 'monospace',
+          color: '#64748b',
+          maxHeight: '80px',
+          overflowY: 'auto',
+          border: '1px solid #e2e8f0'
+        }}>
+          {debugLog.map((log, i) => (
+            <div key={i} style={{ padding: '0.15rem 0' }}>{log}</div>
+          ))}
         </div>
-      )}
 
-      <div style={{ marginBottom: '2rem', padding: '1rem', background: '#e3f2fd', borderRadius: '12px' }}>
-        <div style={{ fontSize: '1rem', marginBottom: '1rem', color: '#1976d2' }}>
-          Эталонный текст ({referenceWordsRef.current.length} слов):
-        </div>
-        <div style={{ fontSize: '1.1rem', lineHeight: '1.6', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-          {referenceWordsRef.current.map((word, index) => {
-            const color = wordColors[index] || COLORS.PENDING;
-
-            let tooltip = '';
-            if (color === COLORS.CURRENT) tooltip = 'Сейчас (интервал слова)';
-            else if (color === COLORS.CORRECT) tooltip = 'Произнесено правильно';
-            else if (color === COLORS.ERROR) tooltip = 'Произнесено с ошибкой';
-            else if (color === COLORS.MISSED) tooltip = 'Пропущено или не сопоставлено';
-            else tooltip = 'Ожидание';
-
-            return (
-              <span
-                key={index}
-                style={{
-                  color:
-                    color === COLORS.CORRECT
-                      ? '#2e7d32'
-                      : color === COLORS.ERROR
-                        ? '#e65100'
-                        : color === COLORS.MISSED
-                          ? '#c62828'
-                          : color === COLORS.CURRENT
-                            ? '#0d47a1'
-                            : '#757575',
-                  padding: '0.2rem 0.4rem',
-                  borderRadius: '4px',
-                  fontWeight: color === COLORS.CURRENT ? '700' : '400',
-                  background:
-                    color === COLORS.CORRECT
-                      ? '#c8e6c9'
-                      : color === COLORS.ERROR
-                        ? '#fff3e0'
-                        : color === COLORS.MISSED
-                          ? '#ffcdd2'
-                          : color === COLORS.CURRENT
-                            ? '#bbdefb'
-                            : '#f5f5f5',
-                  boxShadow: color === COLORS.CURRENT ? '0 0 10px rgba(33,150,243,0.3)' : 'none',
-                  display: 'inline-block',
-                  marginBottom: '0.2rem',
-                  cursor: 'help'
-                }}
-                title={`${tooltip}: ${word}`}
-              >
-                {word}
-              </span>
-            );
-          })}
-        </div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
-
-      {/* Детальный анализ */}
-      {!isProcessing && wordAnalysis.length > 0 && renderWordAnalysis()}
-
-      {/* Распознанный текст целиком */}
-      {transcription && (
-        <div style={{ marginBottom: '2rem', padding: '1rem', background: '#f3e5f5', borderRadius: '12px' }}>
-          <div style={{ fontSize: '1rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-            Распознанный текст ({wordTimestamps.length} слов):
-          </div>
-          <div
-            style={{
-              fontSize: '1rem',
-              lineHeight: '1.5',
-              padding: '0.5rem',
-              background: '#f8f8f8',
-              borderRadius: '6px',
-              whiteSpace: 'pre-wrap'
-            }}
-          >
-            {transcription}
-          </div>
-        </div>
-      )}
-
-      {/* Кнопка сброса */}
-      {file && (
-        <button
-          onClick={handleNewAttempt}
-          disabled={isProcessing}
-          style={{
-            padding: '0.8rem 1.5rem',
-            background: isProcessing ? '#ccc' : '#2196F3',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: isProcessing ? 'not-allowed' : 'pointer',
-            fontSize: '1rem',
-            width: '100%',
-            fontWeight: 'bold'
-          }}
-        >
-          {isProcessing ? 'Отмена...' : 'Новая проверка'}
-        </button>
-      )}
-
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }
