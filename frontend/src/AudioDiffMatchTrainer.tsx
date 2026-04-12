@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import diff_match_patch from 'diff-match-patch';
 
 type FinalKind = 'pending' | 'correct' | 'error' | 'missed';
+type ModelType = 'vosk' | 'whisper';
 
 export default function AudioFileRecognizer() {
   const [file, setFile] = useState<File | null>(null);
@@ -50,10 +51,10 @@ export default function AudioFileRecognizer() {
   const finalStateRef = useRef<FinalKind[]>([]);
 
   const referenceWordsRef = useRef<string[]>([]);     // все слова эталона по порядку
+  const [selectedModel, setSelectedModel] = useState<ModelType>('vosk');
 
   const CHUNK_DURATION = 10;       // длина чанка аудио (сек)
   const MAX_RECONNECT_ATTEMPTS = 5;
-  const WS_URL = 'ws://localhost:2700';
 
   const COLORS = {
     CURRENT: '#2196f3',
@@ -115,11 +116,11 @@ export default function AudioFileRecognizer() {
   };
 
   const enhanceAudioForVosk = async (audioBuffer: AudioBuffer): Promise<AudioBuffer> => {
-    addDebugLog('Улучшение качества аудио для Vosk...');
+    addDebugLog('Улучшение качества аудио для распознавания...');
     return applyNoiseReduction(audioBuffer);
   };
 
-  // Обновление эталонного текста при его изменении
+  // Обновление эталонного текста
   const updateReferenceText = (newText: string) => {
     setReferenceText(newText);
 
@@ -182,6 +183,7 @@ export default function AudioFileRecognizer() {
       .toLowerCase()
       .replace(/[.,!?;:()\[\]{}"'-]/g, '')
       .replace(/ё/g, 'е')
+      .replace(/\s+/g, ' ')  // Нормализуем пробелы
       .trim();
   };
 
@@ -321,9 +323,7 @@ export default function AudioFileRecognizer() {
     refToRecIdx.forEach((idx) => {
       if (idx != null) used.add(idx);
     });
-
-    const duration = recWords[recWords.length - 1].end || 0;
-
+    const duration = recWords.length ? recWords[recWords.length - 1].end || 0 : 0;
     for (let i = 0; i < referenceWords.length; i++) {
       if (refToRecIdx[i] != null) continue;
       const expectedTime = duration ? (i / referenceWords.length) * duration : 0;
@@ -357,9 +357,6 @@ export default function AudioFileRecognizer() {
     return refToRecIdx;
   };
 
-  /**
-   * После buildDiffMatchAlignment дополняем expectedStart/expectedEnd для подсветки «дырок»
-   */
   const enrichMappingWithTimeWindows = (mapping: any[], totalDuration: number) => {
     const n = mapping.length;
     for (let i = 0; i < n; i++) {
@@ -378,7 +375,6 @@ export default function AudioFileRecognizer() {
         else t1 = Math.min(t1, next.expectedTime ?? totalDuration);
       }
       const span = Math.max(0.15, t1 - t0);
-      const wordsInGap = [];
       let gapStart = i;
       while (gapStart > 0 && !mapping[gapStart - 1].voskWord) gapStart--;
       let gapEnd = i;
@@ -657,7 +653,7 @@ export default function AudioFileRecognizer() {
     return segmentBuffer;
   };
 
-  // Распознавание одного чанка с ретраями
+  // Используем динамический URL для WebSocket
   const processChunkWithRetry = async (
     chunk: any,
     chunkIndex: number,
@@ -665,14 +661,15 @@ export default function AudioFileRecognizer() {
     retryCount = 0
   ) => {
     return new Promise<any[]>((resolve) => {
-      addDebugLog(`Чанк ${chunkIndex + 1}/${totalChunks} (попытка ${retryCount + 1})`);
-      const ws = new WebSocket(WS_URL);
+      addDebugLog(`Чанк ${chunkIndex + 1}/${totalChunks} (${selectedModel.toUpperCase()}) (попытка ${retryCount + 1})`);
+
+      // Используем динамический URL в зависимости от выбранной модели
+      const ws = new WebSocket(getWebSocketUrl());
       let chunkResults: any[] = [];
       let complete = false;
 
       const timeoutId = setTimeout(() => {
         if (ws.readyState === WebSocket.OPEN) ws.close();
-
         if (!complete && retryCount < MAX_RECONNECT_ATTEMPTS) {
           setTimeout(async () => {
             resolve(await processChunkWithRetry(chunk, chunkIndex, totalChunks, retryCount + 1));
@@ -681,10 +678,12 @@ export default function AudioFileRecognizer() {
       }, chunk.duration * 1000 + 10000);
 
       ws.onopen = () => {
-        // конфиг для Vosk: включаем разметку по словам
-        ws.send(JSON.stringify({ config: { sample_rate: 16000, words: true, max_alternatives: 0 } }));
+        // Для Vosk нужна конфигурация, для Whisper нет
+        if (selectedModel === 'vosk') {
+          ws.send(JSON.stringify({ config: { sample_rate: 16000, words: true, max_alternatives: 0 } }));
+        }
+
         setTimeout(() => {
-          // берём моно-канал, конвертируем в 16-bit PCM и отправляем
           const channelData = chunk.buffer.getChannelData(0);
           const pcm16 = new Int16Array(channelData.length);
           for (let i = 0; i < channelData.length; i++) {
@@ -951,7 +950,6 @@ export default function AudioFileRecognizer() {
   };
 
   const handleAudioPlay = () => {
-    // при старте с начала — сбрасываем цвета
     if (audioRef.current && audioRef.current.currentTime < 0.5) {
       const resetColors = Array(referenceWordsRef.current.length).fill(COLORS.PENDING);
       setWordColors(resetColors);
@@ -1100,7 +1098,7 @@ export default function AudioFileRecognizer() {
 
       setProgress(100);
       setIsProcessing(false);
-      setRecognitionStatus(`Распознавание завершено! ${uniqueResults.length} слов`);
+      setRecognitionStatus(`Распознавание завершено! ${uniqueResults.length} слов через ${selectedModel.toUpperCase()}`);
     } catch (error: any) {
       addDebugLog(`Критическая ошибка: ${error.message}`);
       console.error(error);
@@ -1158,113 +1156,75 @@ export default function AudioFileRecognizer() {
 
   const getAudioUrl = () => audioUrlRef.current || '';
 
-  const renderLegend = () => (
-    <div
-      style={{
+  const getWebSocketUrl = () => {
+    if (selectedModel === 'whisper') {
+      return 'ws://localhost:2701';  // Whisper на 2701
+    } else {
+      return 'ws://localhost:2700';  // Vosk на 2700
+    }
+  };
+
+  // Компонент переключателя моделей
+  const ModelSelector = () => (
+    <div style={{
+      display: 'flex',
+      gap: '1rem',
+      marginBottom: '1rem',
+      padding: '0.75rem',
+      background: 'white',
+      borderRadius: '12px',
+      border: '1px solid #e2e8f0',
+      justifyContent: 'center'
+    }}>
+      <label style={{
         display: 'flex',
-        gap: '1.5rem',
-        marginBottom: '1rem',
-        padding: '0.5rem',
-        background: '#f5f5f5',
+        alignItems: 'center',
+        gap: '0.5rem',
+        cursor: isProcessing ? 'not-allowed' : 'pointer',
+        opacity: isProcessing ? 0.6 : 1,
+        padding: '0.5rem 1rem',
         borderRadius: '8px',
-        justifyContent: 'center',
-        flexWrap: 'wrap'
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-        <div style={{ width: '20px', height: 20, background: COLORS.CURRENT, borderRadius: '4px' }} />
-        <span>Сейчас (ожидаемый или распознанный интервал)</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-        <div style={{ width: '20px', height: 20, background: COLORS.CORRECT, borderRadius: '4px' }} />
-        <span>Правильно (≥80%)</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-        <div style={{ width: '20px', height: 20, background: COLORS.ERROR, borderRadius: '4px' }} />
-        <span>С ошибкой (40–80%)</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-        <div style={{ width: '20px', height: 20, background: COLORS.MISSED, borderRadius: '4px' }} />
-        <span>Пропуск / не найдено</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-        <div style={{ width: '20px', height: 20, background: COLORS.PENDING, borderRadius: '4px' }} />
-        <span>Ещё не дошли</span>
-      </div>
+        background: selectedModel === 'vosk' ? '#fef3c7' : 'transparent',
+        transition: 'all 0.2s'
+      }}>
+        <input
+          type="radio"
+          name="model"
+          value="vosk"
+          checked={selectedModel === 'vosk'}
+          onChange={(e) => setSelectedModel(e.target.value as ModelType)}
+          disabled={isProcessing}
+        />
+        <span style={{ fontWeight: selectedModel === 'vosk' ? '600' : '400' }}>
+          Vosk
+        </span>
+      </label>
+
+      <label style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        cursor: isProcessing ? 'not-allowed' : 'pointer',
+        opacity: isProcessing ? 0.6 : 1,
+        padding: '0.5rem 1rem',
+        borderRadius: '8px',
+        background: selectedModel === 'whisper' ? '#e0f2fe' : 'transparent',
+        transition: 'all 0.2s'
+      }}>
+        <input
+          type="radio"
+          name="model"
+          value="whisper"
+          checked={selectedModel === 'whisper'}
+          onChange={(e) => setSelectedModel(e.target.value as ModelType)}
+          disabled={isProcessing}
+        />
+        <span style={{ fontWeight: selectedModel === 'whisper' ? '600' : '400' }}>
+          Whisper
+        </span>
+      </label>
     </div>
   );
-
-  const renderWordAnalysis = () => {
-    if (!wordAnalysis.length) return null;
-
-    return (
-      <div
-        style={{
-          marginBottom: '2rem',
-          padding: '1rem',
-          background: '#f5f5f5',
-          borderRadius: '12px'
-        }}
-      >
-        <div style={{ fontWeight: 'bold', marginBottom: '1rem', fontSize: '1.1rem' }}>
-          Детальный анализ произношения:
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.5rem',
-            maxHeight: '500px',
-            overflowY: 'auto'
-          }}
-        >
-          {wordAnalysis.map((item, i) => (
-            <div
-              key={i}
-              style={{
-                padding: '0.5rem',
-                background: 'white',
-                borderRadius: '6px',
-                borderLeft: `5px solid ${item.color}`,
-                display: 'grid',
-                gridTemplateColumns: 'auto 1fr auto',
-                gap: '1rem',
-                alignItems: 'center'
-              }}
-            >
-              <div style={{ fontWeight: 'bold', color: '#666' }}>{item.position}.</div>
-              <div>
-                <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', color: '#666' }}>
-                  <span>⏱️ exp:{item.expectedTime}с</span>
-                  {item.actualTime && <span>🎤 act:{item.actualTime}с</span>}
-                  {item.timeDiff && <span>📏 diff:{item.timeDiff}с</span>}
-                </div>
-                <div style={{ color: '#4caf50' }}>📖 {item.expected}</div>
-                <div style={{ color: '#ff9800' }}>🎤 {item.actual}</div>
-                {item.changes && item.changes.length > 0 && (
-                  <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '0.2rem' }}>
-                    {item.changes.join(' • ')}
-                  </div>
-                )}
-              </div>
-              <div
-                style={{
-                  background: item.color,
-                  color: 'white',
-                  padding: '0.2rem 0.5rem',
-                  borderRadius: '4px',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold'
-                }}
-              >
-                {item.similarity.toFixed(0)}%
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   // ---------- Основной JSX ----------
   return (
@@ -1295,8 +1255,24 @@ export default function AudioFileRecognizer() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.25rem', marginBottom: '1.25rem', alignItems: 'start' }}>
+        <ModelSelector />
 
+        {/* {isProcessing && (
+          <div style={{
+            marginBottom: '1rem',
+            padding: '0.5rem',
+            background: selectedModel === 'whisper' ? '#e0f2fe' : '#fef3c7',
+            borderRadius: '8px',
+            fontSize: '0.8rem',
+            textAlign: 'center',
+            border: `1px solid ${selectedModel === 'whisper' ? '#7dd3fc' : '#fde68a'}`
+          }}>
+            🔄 Используется модель: <strong>{selectedModel === 'whisper' ? 'Whisper' : 'Vosk'}</strong>
+            {selectedModel === 'whisper' ? ' (более точное распознавание)' : ' (быстрое распознавание)'}
+          </div>
+        )} */}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.25rem', marginBottom: '1.25rem', alignItems: 'start' }}>
           <div style={{ minWidth: 0, overflow: 'hidden' }}>
             {!file ? (
               <div style={{
@@ -1390,7 +1366,6 @@ export default function AudioFileRecognizer() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', minWidth: 0 }}>
-
             {/* Статистика */}
             {objectiveStats.totalReference > 0 && (
               <div style={{
@@ -1528,8 +1503,7 @@ export default function AudioFileRecognizer() {
 
         {(!isProcessing && wordAnalysis.length > 0) && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
-
-            {/* Детальный анализ - компактная версия */}
+            {/* Детальный анализ */}
             <div style={{
               background: 'white',
               borderRadius: '12px',
@@ -1546,7 +1520,6 @@ export default function AudioFileRecognizer() {
                   const expectedTimeSec = parseFloat(item.expectedTime);
                   const actualTimeSec = item.actualTime ? parseFloat(item.actualTime) : null;
                   const timeDiffSec = item.timeDiff ? parseFloat(item.timeDiff) : null;
-
                   return (
                     <div
                       key={i}
@@ -1557,7 +1530,6 @@ export default function AudioFileRecognizer() {
                         borderLeft: `3px solid ${item.color}`
                       }}
                     >
-                      {/* Верхняя строка: номер, время, процент */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.65rem', color: '#64748b' }}>
                         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                           <span style={{ fontWeight: '600' }}>#{item.position}</span>
@@ -1582,8 +1554,6 @@ export default function AudioFileRecognizer() {
                           {item.similarity.toFixed(0)}%
                         </span>
                       </div>
-
-                      {/* Слова */}
                       <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem', flexWrap: 'wrap', alignItems: 'baseline' }}>
                         <span style={{ color: '#1e293b', fontWeight: '500' }}>📖 {item.expected}</span>
                         <span style={{ color: '#cbd5e1' }}>→</span>
@@ -1628,6 +1598,7 @@ export default function AudioFileRecognizer() {
             )}
           </div>
         )}
+
         {/* Debug лог */}
         <div style={{
           marginTop: '0.875rem',

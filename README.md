@@ -24,15 +24,26 @@ wget https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
 unzip vosk-model-small-ru-0.22.zip -d models/
 ```
 
-### Запуск Vosk сервера
 
+### Установка
 ```bash
 cd backend
 python3.9 -m venv venv
 source venv/bin/activate  # Linux/macOS
 .venv\Scripts\activate   # Windows
-pip install websockets==9.1 vosk   
-python vosk_server.py ../models/vosk-model-ru-0.42
+pip install websockets==9.1 vosk openai-whisper transformers torch torchaudio
+```
+
+### Запуск Vosk сервера
+
+```bash
+python vosk_server.py ../models/vosk-model-ru-0.42 --host localhost --port 2700
+```
+
+### Запуск Whisper сервера
+
+```bash
+python whisper_server.py --model medium --host localhost --port 27012701
 ```
 
 ### Запуск frontend

@@ -14,10 +14,7 @@ function App() {
     <div className="App">
       {/* <Recognize />  первый вариант*/}
 
-      <AudioDiffMatchTrainer
-        referenceText={referenceText}
-        wsUrl="ws://localhost:2700"
-      />
+      <AudioDiffMatchTrainer />
     </div>
   );
 }
