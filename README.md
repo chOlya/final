@@ -31,7 +31,7 @@ cd backend
 python3.9 -m venv venv
 source venv/bin/activate  # Linux/macOS
 .venv\Scripts\activate   # Windows
-pip install websockets==9.1 vosk openai-whisper transformers torch torchaudio
+pip install websockets==9.1 vosk openai-whisper transformers torch torchaudio soundfile
 ```
 
 ### Запуск Vosk сервера
@@ -43,7 +43,13 @@ python vosk_server.py ../models/vosk-model-ru-0.42 --host localhost --port 2700
 ### Запуск Whisper сервера
 
 ```bash
-python whisper_server.py --model medium --host localhost --port 27012701
+python whisper_server.py --model medium --host localhost --port 2701
+```
+
+### Запуск Wav2Vec2 сервера
+
+```bash
+python wav2vec2_server.py --host localhost --port 2702
 ```
 
 ### Запуск frontend

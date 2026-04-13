@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import diff_match_patch from 'diff-match-patch';
 
 type FinalKind = 'pending' | 'correct' | 'error' | 'missed';
-type ModelType = 'vosk' | 'whisper';
+type ModelType = 'vosk' | 'whisper' | 'wav2vec2';
 
 export default function AudioFileRecognizer() {
   const [file, setFile] = useState<File | null>(null);
@@ -1159,6 +1159,8 @@ export default function AudioFileRecognizer() {
   const getWebSocketUrl = () => {
     if (selectedModel === 'whisper') {
       return 'ws://localhost:2701';  // Whisper на 2701
+    } else if (selectedModel === 'wav2vec2') {
+      return 'ws://localhost:2702';  // Wav2Vec2 на 2702
     } else {
       return 'ws://localhost:2700';  // Vosk на 2700
     }
@@ -1174,7 +1176,8 @@ export default function AudioFileRecognizer() {
       background: 'white',
       borderRadius: '12px',
       border: '1px solid #e2e8f0',
-      justifyContent: 'center'
+      justifyContent: 'center',
+      flexWrap: 'wrap'
     }}>
       <label style={{
         display: 'flex',
@@ -1184,8 +1187,7 @@ export default function AudioFileRecognizer() {
         opacity: isProcessing ? 0.6 : 1,
         padding: '0.5rem 1rem',
         borderRadius: '8px',
-        background: selectedModel === 'vosk' ? '#fef3c7' : 'transparent',
-        transition: 'all 0.2s'
+        background: selectedModel === 'vosk' ? '#fef3c7' : 'transparent'
       }}>
         <input
           type="radio"
@@ -1195,9 +1197,7 @@ export default function AudioFileRecognizer() {
           onChange={(e) => setSelectedModel(e.target.value as ModelType)}
           disabled={isProcessing}
         />
-        <span style={{ fontWeight: selectedModel === 'vosk' ? '600' : '400' }}>
-          Vosk
-        </span>
+        <span>Vosk</span>
       </label>
 
       <label style={{
@@ -1208,8 +1208,7 @@ export default function AudioFileRecognizer() {
         opacity: isProcessing ? 0.6 : 1,
         padding: '0.5rem 1rem',
         borderRadius: '8px',
-        background: selectedModel === 'whisper' ? '#e0f2fe' : 'transparent',
-        transition: 'all 0.2s'
+        background: selectedModel === 'whisper' ? '#e0f2fe' : 'transparent'
       }}>
         <input
           type="radio"
@@ -1219,9 +1218,28 @@ export default function AudioFileRecognizer() {
           onChange={(e) => setSelectedModel(e.target.value as ModelType)}
           disabled={isProcessing}
         />
-        <span style={{ fontWeight: selectedModel === 'whisper' ? '600' : '400' }}>
-          Whisper
-        </span>
+        <span>Whisper</span>
+      </label>
+
+      <label style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        cursor: isProcessing ? 'not-allowed' : 'pointer',
+        opacity: isProcessing ? 0.6 : 1,
+        padding: '0.5rem 1rem',
+        borderRadius: '8px',
+        background: selectedModel === 'wav2vec2' ? '#d1fae5' : 'transparent'
+      }}>
+        <input
+          type="radio"
+          name="model"
+          value="wav2vec2"
+          checked={selectedModel === 'wav2vec2'}
+          onChange={(e) => setSelectedModel(e.target.value as ModelType)}
+          disabled={isProcessing}
+        />
+        <span>Wav2Vec2</span>
       </label>
     </div>
   );
@@ -1598,7 +1616,6 @@ export default function AudioFileRecognizer() {
             )}
           </div>
         )}
-
         {/* Debug лог */}
         <div style={{
           marginTop: '0.875rem',
