@@ -37,7 +37,7 @@ const COLORS_UI = {
   correct: '#4caf50',
   errorWord: '#ff9800',
   missed: '#f44336',
-  current: '#2969e3',
+  current: '#8b5cf6',
   pending: '#d5dfe6'
 };
 
@@ -268,11 +268,12 @@ const computeAggregateIPT = (mapping: any[], lambda: number = 0.05): AggregateIP
 };
 
 // Компонент для отображения графика ИПТ по словам
-const IPTChart = ({ words, currentTime, onWordClick, audioDuration }: {
+const IPTChart = ({ words, currentTime, onWordClick, audioDuration, statsCounts }: {
   words: WordIPT[];
   currentTime: number;
   onWordClick: (startTime: number) => void;
   audioDuration: number;
+  statsCounts: { perfect: number; good: number; medium: number; poor: number; critical: number };
 }) => {
   if (words.length === 0) return null;
 
@@ -289,8 +290,20 @@ const IPTChart = ({ words, currentTime, onWordClick, audioDuration }: {
     }
   };
 
+  const getStatusLabel = (status: WordIPT['status']) => {
+    switch (status) {
+      case 'perfect': return 'Отлично';
+      case 'good': return 'Хорошо';
+      case 'medium': return 'Средне';
+      case 'poor': return 'Плохо';
+      case 'critical': return 'Критично';
+    }
+  };
+
   const totalDuration = words[words.length - 1]?.endTime || audioDuration;
   const currentPositionPercent = totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
+
+  const avgIPT = words.reduce((sum, w) => sum + w.ipt, 0) / words.length;
 
   return (
     <div style={{
@@ -301,17 +314,36 @@ const IPTChart = ({ words, currentTime, onWordClick, audioDuration }: {
       boxShadow: `0 2px 8px ${COLORS_UI.shadow}`,
       marginBottom: '1.25rem'
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <div style={{ fontSize: '0.85rem', fontWeight: '600', color: COLORS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          📊 Пословный ИПТ
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: COLORS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            📊 Пословный ИПТ
+          </span>
+          <span style={{
+            fontSize: '1.1rem',
+            fontWeight: '700',
+            color: avgIPT >= 0.6 ? COLORS_UI.success : avgIPT >= 0.4 ? COLORS_UI.warning : COLORS_UI.error
+          }}>
+            {avgIPT.toFixed(3)}
+          </span>
+          <span style={{
+            fontSize: '0.8rem',
+            padding: '0.2rem 0.6rem',
+            borderRadius: '20px',
+            background: `${avgIPT >= 0.6 ? COLORS_UI.success : avgIPT >= 0.4 ? COLORS_UI.warning : COLORS_UI.error}15`,
+            color: avgIPT >= 0.6 ? COLORS_UI.success : avgIPT >= 0.4 ? COLORS_UI.warning : COLORS_UI.error
+          }}>
+            {((avgIPT + 0.5) / 1.5 * 100).toFixed(0)}%
+          </span>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           {(['perfect', 'good', 'medium', 'poor', 'critical'] as const).map(status => {
-            const labels = { perfect: 'Отлично', good: 'Хорошо', medium: 'Средне', poor: 'Плохо', critical: 'Критично' };
+            const counts = { perfect: statsCounts.perfect, good: statsCounts.good, medium: statsCounts.medium, poor: statsCounts.poor, critical: statsCounts.critical };
             return (
-              <div key={status} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <div style={{ width: '10px', height: '10px', background: getBarColor(status) }} />
-                <span style={{ fontSize: '0.7rem', color: COLORS_UI.textTertiary }}>{labels[status]}</span>
+              <div key={status} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: getBarColor(status) }} />
+                <span style={{ fontSize: '0.7rem', color: COLORS_UI.textSecondary }}>{getStatusLabel(status)}</span>
+                <span style={{ fontSize: '0.7rem', fontWeight: '600', color: COLORS_UI.textPrimary }}>{counts[status]}</span>
               </div>
             );
           })}
@@ -334,7 +366,7 @@ const IPTChart = ({ words, currentTime, onWordClick, audioDuration }: {
                 width={`${Math.max(0.3, x2 - x1)}%`}
                 height={normalizedIPT * height}
                 fill={getBarColor(word.status)}
-                opacity={currentTime >= word.startTime && currentTime <= word.endTime ? 1 : 0.8}
+                opacity={currentTime >= word.startTime && currentTime <= word.endTime ? 1 : 0.7}
                 style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
                 onClick={() => onWordClick(word.startTime)}
               />
@@ -376,96 +408,6 @@ const IPTChart = ({ words, currentTime, onWordClick, audioDuration }: {
   );
 };
 
-// Компонент для отображения агрегированных метрик ИПТ
-const AggregateIPTDisplay = ({ aggregate, lambda, onLambdaChange }: {
-  aggregate: AggregateIPT | null;
-  lambda: number;
-  onLambdaChange: (value: number) => void;
-}) => {
-  if (!aggregate) return null;
-
-  const getLevelColor = (value: number) => {
-    if (value >= 0.8) return COLORS_UI.success;
-    if (value >= 0.6) return COLORS_UI.primary;
-    if (value >= 0.4) return COLORS_UI.warning;
-    if (value >= 0.2) return COLORS_UI.error;
-    return '#dc2626';
-  };
-
-  const weightedColor = getLevelColor(aggregate.weightedAverageIPT);
-
-  return (
-    <div style={{
-      background: COLORS_UI.bgCard,
-      borderRadius: '20px',
-      padding: '1.25rem',
-      border: `1px solid ${COLORS_UI.border}`,
-      boxShadow: `0 2px 8px ${COLORS_UI.shadow}`,
-      marginBottom: '1.25rem'
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-        <div>
-          <div style={{ fontSize: '0.8rem', fontWeight: '600', color: COLORS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Индекс Произносительной Точности
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '2.2rem', fontWeight: '700', color: weightedColor }}>
-              {aggregate.weightedAverageIPT.toFixed(3)}
-            </span>
-            <span style={{
-              fontSize: '1rem',
-              fontWeight: '500',
-              padding: '0.25rem 0.75rem',
-              borderRadius: '24px',
-              background: `${weightedColor}15`,
-              color: weightedColor
-            }}>
-              {aggregate.weightedAverageNormalized.toFixed(0)}%
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ marginBottom: '1rem' }}>
-        <div style={{ height: '6px', background: COLORS_UI.bgHover, borderRadius: '3px', overflow: 'hidden' }}>
-          <div style={{ width: `${aggregate.weightedAverageNormalized}%`, height: '100%', background: weightedColor, transition: 'width 0.5s ease', borderRadius: '3px' }} />
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '1.25rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <div><span style={{ fontSize: '1.1rem' }}>👍</span> <span style={{ fontSize: '1rem', fontWeight: 600, color: COLORS_UI.textPrimary }}>{aggregate.perfectCount}</span></div>
-        <div><span style={{ fontSize: '1.1rem' }}>👌</span> <span style={{ fontSize: '1rem', fontWeight: 600, color: COLORS_UI.textPrimary }}>{aggregate.goodCount}</span></div>
-        <div><span style={{ fontSize: '1.1rem' }}>🤔</span> <span style={{ fontSize: '1rem', fontWeight: 600, color: COLORS_UI.textPrimary }}>{aggregate.mediumCount}</span></div>
-        <div><span style={{ fontSize: '1.1rem' }}>⚠️</span> <span style={{ fontSize: '1rem', fontWeight: 600, color: COLORS_UI.textPrimary }}>{aggregate.poorCount}</span></div>
-        <div><span style={{ fontSize: '1.1rem' }}>❌</span> <span style={{ fontSize: '1rem', fontWeight: 600, color: COLORS_UI.textPrimary }}>{aggregate.criticalCount}</span></div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', paddingTop: '0.75rem', borderTop: `1px solid ${COLORS_UI.border}` }}>
-        <div style={{ fontSize: '0.8rem', color: COLORS_UI.textSecondary }}>
-          Штраф λ = {lambda.toFixed(3)}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <input
-            type="range"
-            min="0"
-            max="0.2"
-            step="0.001"
-            value={lambda}
-            onChange={(e) => onLambdaChange(parseFloat(e.target.value))}
-            style={{
-              width: '140px',
-              height: '4px',
-              borderRadius: '2px',
-              background: COLORS_UI.border,
-              accentColor: COLORS_UI.primary
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // Компонент для отображения детального списка слов с ИПТ
 const WordIPTList = ({ words, currentTime, onWordClick }: {
   words: WordIPT[];
@@ -482,6 +424,10 @@ const WordIPTList = ({ words, currentTime, onWordClick }: {
       case 'poor': return COLORS_UI.error;
       case 'critical': return '#dc2626';
     }
+  };
+
+  const cleanWord = (word: string) => {
+    return word.replace(/[.,!?;:()\[\]{}"'-]/g, '');
   };
 
   return (
@@ -516,7 +462,7 @@ const WordIPTList = ({ words, currentTime, onWordClick }: {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: '600', fontSize: '1rem', color: COLORS_UI.textPrimary }}>{word.word}</span>
+                <span style={{ fontWeight: '600', fontSize: '1rem', color: COLORS_UI.textPrimary }}>{cleanWord(word.word)}</span>
                 <span style={{ fontSize: '0.7rem', color: COLORS_UI.textTertiary }}>
                   {word.startTime.toFixed(1)}с – {word.endTime.toFixed(1)}с
                 </span>
@@ -574,7 +520,6 @@ export default function AudioFileRecognizer() {
   });
 
   const [aggregateIPT, setAggregateIPT] = useState<AggregateIPT | null>(null);
-  const [penaltyLambda, setPenaltyLambda] = useState(0.05);
 
   const [sentences, setSentences] = useState<any[]>([]);
   const [referenceText, setReferenceText] = useState('');
@@ -591,8 +536,9 @@ export default function AudioFileRecognizer() {
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const dmpRef = useRef<any>(null);                   // экземпляр diff_match_patch
   const wordColorsRef = useRef<string[]>([]);
-  // После финализации цвет не меняется (кроме того что CURRENT только для «живого» слова)
-  const finalStateRef = useRef<FinalKind[]>([]);
+  const finalStateRef = useRef<string[]>([]);
+  // Храним цвета на основе ИПТ для каждого слова
+  const iptColorsRef = useRef<string[]>([]);
 
   const referenceWordsRef = useRef<string[]>([]);     // все слова эталона по порядку
   const [selectedModel, setSelectedModel] = useState<ModelType>('vosk');
@@ -603,6 +549,7 @@ export default function AudioFileRecognizer() {
   const COLORS_WORD = {
     CURRENT: COLORS_UI.current,
     CORRECT: COLORS_UI.correct,
+    GOOD: COLORS_UI.primary,
     ERROR: COLORS_UI.errorWord,
     MISSED: COLORS_UI.missed,
     PENDING: COLORS_UI.pending
@@ -621,6 +568,13 @@ export default function AudioFileRecognizer() {
   const SIM_THRESHOLD_GLOBAL = 70;
 
   const UPDATE_INTERVAL_MS = 50;
+
+  const cleanWord = (word: string) => {
+    if (!word) return '';
+    return word
+      .replace(/[.,!?;:()\[\]{}"'-]/g, '')
+      .trim();
+  };
 
   // ---------- Шумоподавление ----------
   const applyNoiseReduction = async (audioBuffer: AudioBuffer): Promise<AudioBuffer> => {
@@ -684,6 +638,7 @@ export default function AudioFileRecognizer() {
     setWordColors(initialColors);
     wordColorsRef.current = initialColors;
     finalStateRef.current = Array(allWords.length).fill('pending');
+    iptColorsRef.current = Array(allWords.length).fill(COLORS_WORD.PENDING);
     addDebugLog(`Текст разбит на ${sentencesArray.length} предложений (${allWords.length} слов)`);
   };
 
@@ -828,9 +783,7 @@ export default function AudioFileRecognizer() {
       let approxIdx = evalRecIdx[i];
       if (approxIdx < 0) approxIdx = 0;
       if (approxIdx >= recWords.length) approxIdx = recWords.length - 1;
-
-      const expectedTime =
-        recWords[approxIdx]?.start ?? (duration ? (i / refTokens.length) * duration : 0);
+      const expectedTime = recWords[approxIdx]?.start ?? (duration ? (i / refTokens.length) * duration : 0);
       const candidates: { j: number; score: number; sim: number }[] = [];
       for (let j = 0; j < recWords.length; j++) {
         if (used.has(j)) continue;
@@ -942,8 +895,17 @@ export default function AudioFileRecognizer() {
     return mapping;
   };
 
-
-  // Главное выравнивание: diff → локальный match → глобальный match → монотонное время
+  // Функция для получения цвета на основе статуса ИПТ
+  const getIPTColorForWord = (status: WordIPT['status']): string => {
+    switch (status) {
+      case 'perfect': return COLORS_WORD.CORRECT;
+      case 'good': return COLORS_WORD.GOOD;
+      case 'medium': return COLORS_WORD.ERROR;
+      case 'poor': return COLORS_WORD.MISSED;
+      case 'critical': return COLORS_WORD.MISSED;
+      default: return COLORS_WORD.PENDING;
+    }
+  };
 
   const buildDiffMatchAlignment = (
     referenceWords: string[],
@@ -955,30 +917,13 @@ export default function AudioFileRecognizer() {
   ) => {
     const refNorm = referenceWords.map(normalizeWord);
     const recNorm = recWords.map((w) => normalizeWord(w.word));
-
     const { refToRecIdx, evalRecIdx } = alignWithDiff(refNorm, recNorm, dmp);
-    const improvedLocal = improveWithMatchLocal(
-      referenceWords,
-      recWords,
-      refToRecIdx,
-      evalRecIdx,
-      dmp
-    );
-    const finalRefToRec = globalFallbackMatch(
-      referenceWords,
-      recWords,
-      improvedLocal.refToRecIdx,
-      dmp
-    );
-
+    const improvedLocal = improveWithMatchLocal(referenceWords, recWords, refToRecIdx, evalRecIdx, dmp);
+    const finalRefToRec = globalFallbackMatch(referenceWords, recWords, improvedLocal.refToRecIdx, dmp);
     const duration = recWords.length ? recWords[recWords.length - 1].end : 0;
-
     const mapping: any[] = [];
     const analysis: any[] = [];
-    let correct = 0,
-      error = 0,
-      missed = 0;
-
+    let correct = 0, error = 0, missed = 0;
     let lastRecIdx = -1;  // предотвращаем “откат” по индексам Vosk
     let lastTime = 0;     // предотвращаем “откат” по ожидаемому времени
 
@@ -994,11 +939,8 @@ export default function AudioFileRecognizer() {
       if (matchIdx == null) {
         // слова без пары — считаем пропущенными, но всё равно задаём
         // ожидаемое время (монотонное по i)
-        const expectedBase = duration
-          ? (i / referenceWords.length) * duration
-          : 0;
+        const expectedBase = duration ? (i / referenceWords.length) * duration : 0;
         const expectedTime = Math.max(lastTime, expectedBase);
-
         mapping.push({
           referenceIndex: i,
           referenceWord: refWord,
@@ -1009,7 +951,6 @@ export default function AudioFileRecognizer() {
           alignment: 'diff',
           status: 'missed'
         });
-
         analysis.push({
           position: i + 1,
           expectedTime: expectedTime.toFixed(1),
@@ -1020,21 +961,17 @@ export default function AudioFileRecognizer() {
           color: COLORS_WORD.MISSED,
           changes: []
         });
-
         lastTime = expectedTime;
         missed++;
       } else {
-        // есть валидное сопоставление с Vosk-словом
         const voskWord = recWords[matchIdx];
         const baseTime = voskWord.start;
         const expectedTime = Math.max(lastTime, baseTime);
         const actualTime = baseTime;
         const timeDiff = expectedTime - actualTime;
-
         const sim = similarityPercent(dmp, refWord, voskWord.word);
         let status: 'correct' | 'error' | 'missed';
         let color: string;
-
         if (sim >= THRESHOLDS.CORRECT) {
           status = 'correct';
           color = COLORS_WORD.CORRECT;
@@ -1048,7 +985,6 @@ export default function AudioFileRecognizer() {
           color = COLORS_WORD.MISSED;
           missed++;
         }
-
         mapping.push({
           referenceIndex: i,
           referenceWord: refWord,
@@ -1060,27 +996,23 @@ export default function AudioFileRecognizer() {
           status,
           similarity: sim
         });
-
         analysis.push({
           position: i + 1,
           expectedTime: expectedTime.toFixed(1),
           actualTime: actualTime.toFixed(1),
           timeDiff: timeDiff.toFixed(1),
-          expected: refWord,
-          actual: voskWord.word,
+          expected: cleanWord(refWord),
+          actual: cleanWord(voskWord.word),
           similarity: sim,
           status,
           color,
           changes: []
         });
-
         lastRecIdx = matchIdx;
         lastTime = expectedTime;
       }
     }
-
     enrichMappingWithTimeWindows(mapping, totalDuration || duration);
-
     const stats = {
       correct,
       error,
@@ -1090,22 +1022,29 @@ export default function AudioFileRecognizer() {
       totalRecognized: recWords.length,
       accuracy: referenceWords.length ? (correct / referenceWords.length) * 100 : 0
     };
-
     setObjectiveStats(stats);
     setWordAnalysis(analysis);
 
-    const aggregate = computeAggregateIPT(mapping, penaltyLambda);
+    const aggregate = computeAggregateIPT(mapping, 0.05);
     setAggregateIPT(aggregate);
+
+    // Заполняем iptColorsRef на основе ИПТ
+    const newIptColors = Array(referenceWords.length).fill(COLORS_WORD.PENDING);
+    for (let i = 0; i < aggregate.words.length; i++) {
+      const wordIPT = aggregate.words[i];
+      newIptColors[i] = getIPTColorForWord(wordIPT.status);
+      addDebugLog(`Слово "${wordIPT.word}" (индекс ${i}) статус ИПТ: ${wordIPT.status} → цвет: ${newIptColors[i] === COLORS_WORD.CORRECT ? 'зеленый' : newIptColors[i] === COLORS_WORD.ERROR ? 'оранжевый' : newIptColors[i] === COLORS_WORD.MISSED ? 'красный' : 'серый'}`);
+    }
+    iptColorsRef.current = newIptColors;
+
     addDebugLog(`ИПТ = ${aggregate.weightedAverageIPT.toFixed(3)} (${aggregate.weightedAverageNormalized.toFixed(1)}%) | Слов: ${aggregate.words.length}`);
 
     return mapping;
   };
 
-  // Разбиение текста на предложения и слова
   const segmentTextBySentences = (text: string) => {
     const sentenceRegex = /[^.!?]+[.!?]+/g;
     const matches = text.match(sentenceRegex) || [];
-
     if (matches.length === 0) {
       return chunkArray(text.split(' '), 15).map((chunk, index) => ({
         id: index,
@@ -1114,7 +1053,6 @@ export default function AudioFileRecognizer() {
         expectedDuration: chunk.length * 0.4
       }));
     }
-
     return matches.map((sentence, index) => {
       const words = sentence.split(' ').filter((w) => w.length > 0);
       return {
@@ -1132,27 +1070,18 @@ export default function AudioFileRecognizer() {
     return chunks;
   };
 
-  // Разбиение AudioBuffer на перекрывающиеся чанки
-  const splitAudioIntoChunks = (
-    audioBuffer: AudioBuffer,
-    chunkDuration: number,
-    overlapDuration = 1.0
-  ) => {
+  const splitAudioIntoChunks = (audioBuffer: AudioBuffer, chunkDuration: number, overlapDuration = 1.0) => {
     const chunks: any[] = [];
     const sampleRate = audioBuffer.sampleRate;
     const totalSamples = audioBuffer.length;
     const chunkSamples = chunkDuration * sampleRate;
     const overlapSamples = overlapDuration * sampleRate;
     const stepSamples = chunkSamples - overlapSamples;
-
     let startSample = 0;
     let chunkIndex = 0;
-
     while (startSample < totalSamples) {
       const endSample = Math.min(startSample + chunkSamples, totalSamples);
       const actualChunkSamples = endSample - startSample;
-
-      // слишком маленький остаток — домержим к последнему чанку
       if (actualChunkSamples < sampleRate * 2) {
         if (chunks.length > 0) {
           const lastChunk = chunks[chunks.length - 1];
@@ -1161,7 +1090,6 @@ export default function AudioFileRecognizer() {
         }
         break;
       }
-
       chunks.push({
         index: chunkIndex,
         startSample,
@@ -1171,29 +1099,24 @@ export default function AudioFileRecognizer() {
         duration: actualChunkSamples / sampleRate,
         buffer: extractAudioSegment(audioBuffer, startSample, endSample)
       });
-
       startSample += stepSamples;
       chunkIndex++;
     }
-
     addDebugLog(`Аудио разбито на ${chunks.length} чанков по ${chunkDuration}с`);
     return chunks;
   };
-  // Вырезаем сегмент AudioBuffer
+
   const extractAudioSegment = (audioBuffer: AudioBuffer, startSample: number, endSample: number) => {
     const length = endSample - startSample;
     if (length <= 0) return null;
-
     const segmentBuffer = audioContextRef.current!.createBuffer(
       audioBuffer.numberOfChannels,
       length,
       audioBuffer.sampleRate
     );
-
     for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
       const channelData = audioBuffer.getChannelData(channel);
       const segmentChannelData = segmentBuffer.getChannelData(channel);
-
       for (let i = 0; i < length; i++) {
         if (startSample + i < channelData.length) segmentChannelData[i] = channelData[startSample + i];
       }
@@ -1201,7 +1124,6 @@ export default function AudioFileRecognizer() {
     return segmentBuffer;
   };
 
-  // Используем динамический URL для WebSocket
   const processChunkWithRetry = async (
     chunk: any,
     chunkIndex: number,
@@ -1210,12 +1132,9 @@ export default function AudioFileRecognizer() {
   ) => {
     return new Promise<any[]>((resolve) => {
       addDebugLog(`Чанк ${chunkIndex + 1}/${totalChunks} (${selectedModel.toUpperCase()}) (попытка ${retryCount + 1})`);
-
-      // Используем динамический URL в зависимости от выбранной модели
       const ws = new WebSocket(getWebSocketUrl());
       let chunkResults: any[] = [];
       let complete = false;
-
       const timeoutId = setTimeout(() => {
         if (ws.readyState === WebSocket.OPEN) ws.close();
         if (!complete && retryCount < MAX_RECONNECT_ATTEMPTS) {
@@ -1224,13 +1143,10 @@ export default function AudioFileRecognizer() {
           }, 1000);
         } else resolve(chunkResults);
       }, chunk.duration * 1000 + 10000);
-
       ws.onopen = () => {
-        // Для Vosk нужна конфигурация, для Whisper нет
         if (selectedModel === 'vosk') {
           ws.send(JSON.stringify({ config: { sample_rate: 16000, words: true, max_alternatives: 0 } }));
         }
-
         setTimeout(() => {
           const channelData = chunk.buffer.getChannelData(0);
           const pcm16 = new Int16Array(channelData.length);
@@ -1243,13 +1159,11 @@ export default function AudioFileRecognizer() {
           }, 500);
         }, 200);
       };
-
       ws.onmessage = (e) => {
         try {
           let data: any;
           if (typeof e.data === 'string') data = JSON.parse(e.data);
           else data = JSON.parse(new TextDecoder().decode(e.data as ArrayBuffer));
-          // финальные результаты чанка с разметкой слов
           if (data.result) {
             data.result.forEach((word: any) => {
               chunkResults.push({
@@ -1261,8 +1175,6 @@ export default function AudioFileRecognizer() {
               });
             });
           }
-
-          // по наличию text считаем чанк завершённым
           if (data.text && !complete) {
             complete = true;
             clearTimeout(timeoutId);
@@ -1294,40 +1206,30 @@ export default function AudioFileRecognizer() {
     });
   };
 
-  // Последовательная обработка всех чанков
   const processAllChunks = async (chunks: any[]) => {
     const allResults: any[] = [];
     const totalChunks = chunks.length;
-
     setTotalSegments(totalChunks);
-
     for (let i = 0; i < chunks.length; i++) {
       if (isCancelledRef.current) break;
       const chunkResults = await processChunkWithRetry(chunks[i], i, totalChunks);
       allResults.push(...chunkResults);
-
       allResultsRef.current = allResults;
       await new Promise((r) => setTimeout(r, 500));
     }
-
     return allResults;
   };
 
-  // Удаление дублей слов (одинаковое слово, почти то же время)
   const deduplicateResults = (results: any[], overlapThreshold = 0.5) => {
     if (results.length === 0) return results;
-
     const sorted = [...results].sort((a, b) => a.start - b.start);
     const unique: any[] = [];
     const used = new Set<number>();
-
     for (let i = 0; i < sorted.length; i++) {
       const current = sorted[i];
       let isDuplicate = false;
-
       for (let j = 0; j < unique.length; j++) {
         const existing = unique[j];
-
         if (
           normalizeWord(current.word) === normalizeWord(existing.word) &&
           Math.abs(current.start - existing.start) < overlapThreshold
@@ -1336,7 +1238,6 @@ export default function AudioFileRecognizer() {
           break;
         }
       }
-
       if (!isDuplicate && !used.has(i)) {
         unique.push(current);
         used.add(i);
@@ -1346,14 +1247,6 @@ export default function AudioFileRecognizer() {
     return unique;
   };
 
-  /** Финальный цвет по статусу (один раз) */
-  const statusToFinalColor = (status: string): string => {
-    if (status === 'correct') return COLORS_WORD.CORRECT;
-    if (status === 'error') return COLORS_WORD.ERROR;
-    return COLORS_WORD.MISSED;
-  };
-
-  // Подсветка слов в зависимости от текущего времени аудио
   const updateWordHighlighting = (currentTime: number) => {
     if (!wordMappingRef.current.length || !audioDuration) return;
 
@@ -1365,90 +1258,47 @@ export default function AudioFileRecognizer() {
     finalStateRef.current.length = n;
 
     const getEntry = (i: number) => mapping.find((x: any) => x.referenceIndex === i);
-
     const getSpan = (i: number) => {
       const m = getEntry(i);
-      if (!m) {
-        return { start: 0, end: 0.35 };
-      }
-      if (m.voskWord) {
-        return { start: m.voskWord.start, end: m.voskWord.end };
-      }
+      if (!m) return { start: 0, end: 0.35 };
+      if (m.voskWord) return { start: m.voskWord.start, end: m.voskWord.end };
       const start = m.expectedStart ?? m.expectedTime ?? 0;
       const end = m.expectedEnd ?? Math.min(audioDuration, start + 0.35);
       return { start, end };
     };
 
-    const finalizeOne = (i: number) => {
-      if (finalStateRef.current[i] !== 'pending') return;
-      const m = getEntry(i);
-      if (!m || !m.voskWord) {
-        finalStateRef.current[i] = 'missed';
-        return;
-      }
-      if (m.status === 'correct') finalStateRef.current[i] = 'correct';
-      else if (m.status === 'error') finalStateRef.current[i] = 'error';
-      else finalStateRef.current[i] = 'missed';
-    };
-
-    const finalizedColor = (i: number) => {
-      const f = finalStateRef.current[i];
-      if (f === 'correct') return COLORS_WORD.CORRECT;
-      if (f === 'error') return COLORS_WORD.ERROR;
-      return COLORS_WORD.MISSED;
-    };
-
-    // 1) Прошёл конец слота — фиксируем по порядку (пропуск без vosk → красный)
+    // Отмечаем слово как завершенное, если текущее время превысило его конец
     for (let i = 0; i < n; i++) {
       if (finalStateRef.current[i] !== 'pending') continue;
       const { end } = getSpan(i);
-      if (currentTime > end + EPS) finalizeOne(i);
+      if (currentTime > end + EPS) {
+        finalStateRef.current[i] = 'finished';
+      }
     }
 
-    // 2) Первая ещё незафиксированная позиция — единственная, где допускается CURRENT
-    let frontier = -1;
+    // Находим текущее слово (первое незавершенное)
+    let currentWordIndex = -1;
     for (let i = 0; i < n; i++) {
       if (finalStateRef.current[i] === 'pending') {
-        frontier = i;
+        currentWordIndex = i;
         break;
       }
     }
 
     const newColors = new Array<string>(n);
-    let currentIdx = -1;
 
     for (let i = 0; i < n; i++) {
-      const fin = finalStateRef.current[i];
-      if (fin !== 'pending') {
-        newColors[i] = finalizedColor(i);
-        continue;
+      // Если слово уже завершено (произнесено) - берем цвет из iptColorsRef
+      if (finalStateRef.current[i] !== 'pending') {
+        newColors[i] = iptColorsRef.current[i] || COLORS_WORD.PENDING;
       }
-
-      if (frontier === -1) {
-        newColors[i] = COLORS_WORD.PENDING;
-        continue;
-      }
-
-      if (i < frontier) {
-        newColors[i] = COLORS_WORD.PENDING;
-        continue;
-      }
-
-      if (i > frontier) {
-        newColors[i] = COLORS_WORD.PENDING;
-        continue;
-      }
-
-      // i === frontier
-      const { start, end } = getSpan(i);
-      if (currentTime < start - EPS) {
-        newColors[i] = COLORS_WORD.PENDING;
-      } else if (currentTime <= end + EPS) {
+      // Если это текущее слово
+      else if (i === currentWordIndex) {
         newColors[i] = COLORS_WORD.CURRENT;
-        currentIdx = i;
-      } else {
-        finalizeOne(i);
-        newColors[i] = finalizedColor(i);
+      }
+      // Остальные - ожидающие
+      else {
+        newColors[i] = COLORS_WORD.PENDING;
       }
     }
 
@@ -1463,15 +1313,13 @@ export default function AudioFileRecognizer() {
       setWordColors(newColors);
       wordColorsRef.current = newColors;
     }
-    setCurrentPlayingWordIndex(currentIdx);
+    setCurrentPlayingWordIndex(currentWordIndex);
     setAudioCurrentTime(currentTime);
   };
 
-  // Цикл подсветки на базе requestAnimationFrame
   const startHighlightingLoop = () => {
     if (isHighlightingRef.current) return;
     if (!audioRef.current || audioRef.current.paused) return;
-
     isHighlightingRef.current = true;
     let lastUpdate = 0;
     const loop = () => {
@@ -1492,7 +1340,6 @@ export default function AudioFileRecognizer() {
       }
       animationFrameRef.current = requestAnimationFrame(loop);
     };
-
     animationFrameRef.current = requestAnimationFrame(loop);
   };
 
@@ -1512,19 +1359,17 @@ export default function AudioFileRecognizer() {
   };
 
   const handleAudioEnded = () => {
-    // в конце просто показываем финальный статус всех слов
     isHighlightingRef.current = false;
+
     const n = referenceWordsRef.current.length;
-    const newColors = [...wordColorsRef.current];
-    for (let i = 0; i < n; i++) {
-      const item = wordMappingRef.current.find((m) => m.referenceIndex === i);
-      if (!item) continue;
-      finalStateRef.current[i] =
-        item.status === 'correct' ? 'correct' : item.status === 'error' ? 'error' : 'missed';
-      newColors[i] = statusToFinalColor(item.status);
-    }
+    // Копируем цвета из iptColorsRef
+    const newColors = [...iptColorsRef.current];
+
     setWordColors(newColors);
     wordColorsRef.current = newColors;
+    finalStateRef.current = Array(n).fill('finished');
+
+    addDebugLog('Аудио завершено, применены цвета ИПТ');
   };
 
   const handleAudioLoadedMetadata = () => {
@@ -1543,21 +1388,17 @@ export default function AudioFileRecognizer() {
     });
   };
 
-  // Главная функция: загрузка файла, декодирование, разбивка, распознавание, выравнивание
   const processFile = async (selectedFile: File) => {
     console.clear();
     addDebugLog('Начало обработки файла (diff → match + время)');
-
     isCancelledRef.current = false;
     allResultsRef.current = [];
-
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     }
     if (wsRef.current) wsRef.current.close();
     if (audioContextRef.current) audioContextRef.current.close();
-
     setFile(selectedFile);
     setIsProcessing(true);
     setRecognitionStatus('Подготовка файла...');
@@ -1584,50 +1425,33 @@ export default function AudioFileRecognizer() {
       accuracy: 0
     });
     setAggregateIPT(null);
-
     wordMappingRef.current = [];
     isHighlightingRef.current = false;
     wordColorsRef.current = Array(referenceWordsRef.current.length).fill(COLORS_WORD.PENDING);
     finalStateRef.current = Array(referenceWordsRef.current.length).fill('pending');
-
+    iptColorsRef.current = Array(referenceWordsRef.current.length).fill(COLORS_WORD.PENDING);
     audioUrlRef.current = URL.createObjectURL(selectedFile);
-
     try {
-      // 1. Декодируем аудио в AudioBuffer
       setRecognitionStatus('Чтение и декодирование аудио...');
       const arrayBuffer = await readFileAsArrayBuffer(selectedFile);
-
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
-        sampleRate: 16000
-      });
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       let audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-
       addDebugLog('🎛️ Обработка шумов радиопереговоров...');
       audioBuffer = await enhanceAudioForVosk(audioBuffer);
       audioBufferRef.current = audioBuffer;
-
       const duration = audioBuffer.duration;
       addDebugLog(`Аудио: ${duration.toFixed(2)} секунд`);
       setAudioDuration(duration);
-
-      // 2. Разбиваем на чанки
       setRecognitionStatus('Разбиение аудио на чанки...');
       const chunks = splitAudioIntoChunks(audioBuffer, CHUNK_DURATION, 1.0);
-
-      // 3. Распознаём каждый чанк через Vosk
       setRecognitionStatus('Распознавание речи...');
       const rawResults = await processAllChunks(chunks);
-
       if (isCancelledRef.current) {
         addDebugLog('Обработка отменена');
         setIsProcessing(false);
         return;
       }
-
-      // 4. Удаляем дубликаты
       const uniqueResults = deduplicateResults(rawResults);
-
-      // 5. Выравниваем эталон и Vosk-слова
       setRecognitionStatus('Выравнивание (diff → match)...');
       const finalMapping = buildDiffMatchAlignment(
         referenceWordsRef.current,
@@ -1637,13 +1461,9 @@ export default function AudioFileRecognizer() {
         setWordAnalysis,
         duration
       );
-
       wordMappingRef.current = finalMapping;
-
-      // 6. Сохраняем распознанный текст и таймстемпы для отображения
       setWordTimestamps(uniqueResults);
       setTranscription(uniqueResults.map((w) => w.word).join(' '));
-
       setProgress(100);
       setIsProcessing(false);
       setRecognitionStatus(`Распознавание завершено! ${uniqueResults.length} слов через ${selectedModel.toUpperCase()}`);
@@ -1665,8 +1485,6 @@ export default function AudioFileRecognizer() {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     }
-
-    // Полный сброс состояния
     setFile(null);
     setIsProcessing(false);
     setRecognitionStatus('');
@@ -1693,13 +1511,12 @@ export default function AudioFileRecognizer() {
       accuracy: 0
     });
     setAggregateIPT(null);
-
     wordMappingRef.current = [];
     allResultsRef.current = [];
     audioBufferRef.current = null;
     wordColorsRef.current = Array(referenceWordsRef.current.length).fill(COLORS_WORD.PENDING);
     finalStateRef.current = Array(referenceWordsRef.current.length).fill('pending');
-
+    iptColorsRef.current = Array(referenceWordsRef.current.length).fill(COLORS_WORD.PENDING);
     addDebugLog('Новая попытка');
   };
 
@@ -1707,11 +1524,11 @@ export default function AudioFileRecognizer() {
 
   const getWebSocketUrl = () => {
     if (selectedModel === 'whisper') {
-      return 'ws://localhost:2701';  // Whisper на 2701
+      return 'ws://localhost:2701';
     } else if (selectedModel === 'wav2vec2') {
-      return 'ws://localhost:2702';  // Wav2Vec2 на 2702
+      return 'ws://localhost:2702';
     } else {
-      return 'ws://localhost:2700';  // Vosk на 2700
+      return 'ws://localhost:2700';
     }
   };
 
@@ -1766,10 +1583,9 @@ export default function AudioFileRecognizer() {
     }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.5rem' }}>
 
-        {/* Header */}
         <div style={{ marginBottom: '1.5rem' }}>
           <h1 style={{
-            fontSize: '1.75rem',
+            fontSize: '2rem',
             fontWeight: '600',
             color: COLORS_UI.textPrimary,
             letterSpacing: '-0.02em',
@@ -1777,28 +1593,23 @@ export default function AudioFileRecognizer() {
           }}>
             Речевой тренажер
           </h1>
-          <div style={{ width: '50px', height: '3px', background: COLORS_UI.primary, borderRadius: '2px' }} />
+          <div style={{ width: '60px', height: '3px', background: COLORS_UI.primary, borderRadius: '2px' }} />
         </div>
 
-        {/* Main Grid - фиксированная высота левого блока */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.25rem', marginBottom: '1.25rem', alignItems: 'stretch' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.25rem', marginBottom: '1.25rem', alignItems: 'start' }}>
 
-          {/* Left Column - Reference Text (фиксированная высота) */}
-          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ minWidth: 0 }}>
             {!file ? (
               <div style={{
                 background: COLORS_UI.bgCard,
                 borderRadius: '20px',
                 padding: '1.25rem',
                 border: `1px solid ${COLORS_UI.border}`,
-                boxShadow: `0 2px 8px ${COLORS_UI.shadow}`,
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column'
+                boxShadow: `0 2px 8px ${COLORS_UI.shadow}`
               }}>
                 <label style={{
                   display: 'block',
-                  fontSize: '0.85rem',
+                  fontSize: '0.9rem',
                   fontWeight: '600',
                   color: COLORS_UI.textSecondary,
                   marginBottom: '0.75rem',
@@ -1821,16 +1632,15 @@ export default function AudioFileRecognizer() {
                     color: COLORS_UI.textPrimary,
                     background: isProcessing ? COLORS_UI.bgSurface : COLORS_UI.bgCard,
                     resize: 'vertical',
-                    minHeight: '280px',
+                    minHeight: '200px',
                     outline: 'none',
                     fontFamily: 'inherit',
                     boxSizing: 'border-box',
-                    transition: 'border-color 0.2s',
-                    flex: 1
+                    transition: 'border-color 0.2s'
                   }}
                   placeholder="Введите текст для анализа..."
                 />
-                <div style={{ fontSize: '0.8rem', color: COLORS_UI.textTertiary, marginTop: '0.75rem' }}>
+                <div style={{ fontSize: '0.85rem', color: COLORS_UI.textTertiary, marginTop: '0.75rem' }}>
                   {referenceWordsRef.current.length} слов
                 </div>
               </div>
@@ -1840,17 +1650,13 @@ export default function AudioFileRecognizer() {
                 borderRadius: '20px',
                 padding: '1.25rem',
                 border: `1px solid ${COLORS_UI.border}`,
-                boxShadow: `0 2px 8px ${COLORS_UI.shadow}`,
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%'
+                boxShadow: `0 2px 8px ${COLORS_UI.shadow}`
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '600', color: COLORS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '600', color: COLORS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Эталонный текст
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: COLORS_UI.textTertiary, background: COLORS_UI.bgSurface, padding: '0.25rem 0.75rem', borderRadius: '12px' }}>
+                  <div style={{ fontSize: '0.8rem', color: COLORS_UI.textTertiary, background: COLORS_UI.bgSurface, padding: '0.25rem 0.75rem', borderRadius: '12px' }}>
                     {referenceWordsRef.current.length} слов
                   </div>
                 </div>
@@ -1860,25 +1666,23 @@ export default function AudioFileRecognizer() {
                   gap: '0.6rem',
                   maxHeight: '320px',
                   overflowY: 'auto',
-                  overflowX: 'hidden',
-                  flex: 1
+                  overflowX: 'hidden'
                 }}>
                   {referenceWordsRef.current.map((word, index) => {
                     const color = wordColors[index] || COLORS_WORD.PENDING;
                     const styles: Record<string, React.CSSProperties> = {
-                      [COLORS_WORD.CURRENT]: { background: `${COLORS_UI.primary}15`, color: COLORS_UI.primary, borderColor: `${COLORS_UI.primary}30`, fontWeight: 600, boxShadow: `0 0 0 2px ${COLORS_UI.primary}40` },
-                      [COLORS_WORD.CORRECT]: { background: `${COLORS_UI.success}15`, color: COLORS_UI.success, borderColor: `${COLORS_UI.success}30` },
-                      [COLORS_WORD.ERROR]: { background: `${COLORS_UI.warning}15`, color: '#9a3412', borderColor: `${COLORS_UI.warning}30` },
-                      [COLORS_WORD.MISSED]: { background: `${COLORS_UI.error}15`, color: '#991b1b', borderColor: `${COLORS_UI.error}30` },
-                      [COLORS_WORD.PENDING]: { background: COLORS_UI.bgSurface, color: COLORS_UI.textTertiary, borderColor: COLORS_UI.border }
+                      [COLORS_WORD.CURRENT]: { background: `${COLORS_UI.current}15`, color: COLORS_UI.current, borderColor: `${COLORS_UI.current}30`, fontWeight: 600, fontSize: '1.1rem', padding: '0.5rem 0.9rem' },
+                      [COLORS_WORD.CORRECT]: { background: `${COLORS_UI.success}15`, color: COLORS_UI.success, borderColor: `${COLORS_UI.success}30`, fontSize: '1rem', padding: '0.4rem 0.8rem' },
+                      [COLORS_WORD.GOOD]: { background: `${COLORS_UI.primary}15`, color: COLORS_UI.primary, borderColor: `${COLORS_UI.primary}30`, fontSize: '1rem', padding: '0.4rem 0.8rem' },  // Добавьте эту строку
+                      [COLORS_WORD.ERROR]: { background: `${COLORS_UI.warning}15`, color: '#9a3412', borderColor: `${COLORS_UI.warning}30`, fontSize: '1rem', padding: '0.4rem 0.8rem' },
+                      [COLORS_WORD.MISSED]: { background: `${COLORS_UI.error}15`, color: '#991b1b', borderColor: `${COLORS_UI.error}30`, fontSize: '1rem', padding: '0.4rem 0.8rem' },
+                      [COLORS_WORD.PENDING]: { background: COLORS_UI.bgSurface, color: COLORS_UI.textTertiary, borderColor: COLORS_UI.border, fontSize: '1rem', padding: '0.4rem 0.8rem' }
                     };
                     return (
                       <span
                         key={index}
                         style={{
-                          padding: '0.4rem 0.8rem',
                           borderRadius: '12px',
-                          fontSize: '1rem',
                           fontWeight: color === COLORS_WORD.CURRENT ? '600' : '400',
                           border: '1px solid',
                           transition: 'all 0.15s ease',
@@ -1886,7 +1690,7 @@ export default function AudioFileRecognizer() {
                           ...styles[color]
                         }}
                       >
-                        {word}
+                        {cleanWord(word)}
                       </span>
                     );
                   })}
@@ -1895,12 +1699,10 @@ export default function AudioFileRecognizer() {
             )}
           </div>
 
-          {/* Right Column - Controls (фиксированная высота) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
             <ModelSelector />
 
-            {/* Audio Upload Area */}
             <div
               onClick={() => !isProcessing && document.getElementById('file-input')?.click()}
               style={{
@@ -1923,14 +1725,14 @@ export default function AudioFileRecognizer() {
                       <circle cx="12" cy="12" r="10" stroke={COLORS_UI.warning} strokeWidth="2" strokeDasharray="30 30" strokeLinecap="round" fill="none" />
                     </svg>
                   </div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '500', color: COLORS_UI.textPrimary }}>{recognitionStatus}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '500', color: COLORS_UI.textPrimary }}>{recognitionStatus}</div>
                   <div style={{ marginTop: '0.5rem' }}>
                     <div style={{ height: '4px', background: COLORS_UI.border, borderRadius: '2px', overflow: 'hidden' }}>
                       <div style={{ width: `${progress}%`, height: '100%', background: COLORS_UI.primary, transition: 'width 0.3s' }} />
                     </div>
                   </div>
                   {totalSegments > 0 && (
-                    <div style={{ fontSize: '0.7rem', color: COLORS_UI.textTertiary, marginTop: '0.3rem' }}>
+                    <div style={{ fontSize: '0.75rem', color: COLORS_UI.textTertiary, marginTop: '0.3rem' }}>
                       {currentSegment} / {totalSegments}
                     </div>
                   )}
@@ -1942,8 +1744,8 @@ export default function AudioFileRecognizer() {
                     <path d="M7 9l5-5 5 5" stroke="currentColor" fill="none" strokeLinecap="round" />
                     <path d="M12 4v12" stroke="currentColor" fill="none" strokeLinecap="round" />
                   </svg>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '500', color: COLORS_UI.textPrimary }}>{file.name}</div>
-                  <div style={{ fontSize: '0.7rem', color: COLORS_UI.textTertiary, marginTop: '0.2rem' }}>{audioDuration.toFixed(1)} сек</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '500', color: COLORS_UI.textPrimary }}>{file.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: COLORS_UI.textTertiary, marginTop: '0.2rem' }}>{audioDuration.toFixed(1)} сек</div>
                 </>
               ) : (
                 <>
@@ -1952,13 +1754,12 @@ export default function AudioFileRecognizer() {
                     <path d="M7 9l5-5 5 5" stroke="currentColor" fill="none" strokeLinecap="round" />
                     <path d="M12 4v12" stroke="currentColor" fill="none" strokeLinecap="round" />
                   </svg>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '500', color: COLORS_UI.textSecondary }}>Загрузить аудио</div>
-                  <div style={{ fontSize: '0.7rem', color: COLORS_UI.textTertiary, marginTop: '0.2rem' }}>MP3, WAV, M4A</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '500', color: COLORS_UI.textSecondary }}>Загрузить аудио</div>
+                  <div style={{ fontSize: '0.75rem', color: COLORS_UI.textTertiary, marginTop: '0.2rem' }}>MP3, WAV, M4A</div>
                 </>
               )}
             </div>
 
-            {/* Audio Player */}
             {file && (
               <div style={{
                 background: COLORS_UI.bgCard,
@@ -1971,7 +1772,7 @@ export default function AudioFileRecognizer() {
                   ref={audioRef}
                   controls
                   src={getAudioUrl()}
-                  style={{ width: '100%', height: '40px' }}
+                  style={{ width: '100%', height: '44px' }}
                   onPlay={handleAudioPlay}
                   onPause={handleAudioPause}
                   onEnded={handleAudioEnded}
@@ -1982,30 +1783,25 @@ export default function AudioFileRecognizer() {
           </div>
         </div>
 
-        {/* IPT Metrics - теперь ниже */}
-        {aggregateIPT && (
-          <AggregateIPTDisplay
-            aggregate={aggregateIPT}
-            lambda={penaltyLambda}
-            onLambdaChange={setPenaltyLambda}
-          />
-        )}
-
-        {/* IPT Chart */}
         {aggregateIPT && aggregateIPT.words.length > 0 && (
           <IPTChart
             words={aggregateIPT.words}
             currentTime={audioCurrentTime}
             onWordClick={scrollToWord}
             audioDuration={audioDuration}
+            statsCounts={{
+              perfect: aggregateIPT.perfectCount,
+              good: aggregateIPT.goodCount,
+              medium: aggregateIPT.mediumCount,
+              poor: aggregateIPT.poorCount,
+              critical: aggregateIPT.criticalCount
+            }}
           />
         )}
 
-        {/* Bottom Section - Analysis */}
         {(!isProcessing && wordAnalysis.length > 0) && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
 
-            {/* Detailed Analysis (old) */}
             <div style={{
               background: COLORS_UI.bgCard,
               borderRadius: '20px',
@@ -2015,7 +1811,7 @@ export default function AudioFileRecognizer() {
               minWidth: 0,
               overflow: 'hidden'
             }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: '600', color: COLORS_UI.textSecondary, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: '600', color: COLORS_UI.textSecondary, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Детальный анализ произношения
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '400px', overflowY: 'auto' }}>
@@ -2033,7 +1829,7 @@ export default function AudioFileRecognizer() {
                         borderLeft: `3px solid ${item.color}`
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.7rem', color: COLORS_UI.textSecondary }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.75rem', color: COLORS_UI.textSecondary }}>
                         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                           <span style={{ fontWeight: '600' }}>#{item.position}</span>
                           <span>⏱️ {expectedTimeSec.toFixed(1)}с</span>
@@ -2052,15 +1848,15 @@ export default function AudioFileRecognizer() {
                           borderRadius: '12px',
                           background: `${item.color}15`,
                           color: item.color,
-                          fontSize: '0.7rem'
+                          fontSize: '0.75rem'
                         }}>
                           {item.similarity.toFixed(0)}%
                         </span>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.85rem', flexWrap: 'wrap', alignItems: 'baseline' }}>
-                        <span style={{ color: COLORS_UI.textPrimary, fontWeight: '500' }}>📖 {item.expected}</span>
+                      <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.95rem', flexWrap: 'wrap', alignItems: 'baseline' }}>
+                        <span style={{ color: COLORS_UI.textPrimary, fontWeight: '500' }}>📖 {cleanWord(item.expected)}</span>
                         <span style={{ color: COLORS_UI.textTertiary }}>→</span>
-                        <span style={{ color: COLORS_UI.warning }}>🎤 {item.actual}</span>
+                        <span style={{ color: COLORS_UI.warning }}>🎤 {cleanWord(item.actual)}</span>
                       </div>
                     </div>
                   );
@@ -2068,7 +1864,6 @@ export default function AudioFileRecognizer() {
               </div>
             </div>
 
-            {/* Word IPT List */}
             {aggregateIPT && aggregateIPT.words.length > 0 && (
               <WordIPTList
                 words={aggregateIPT.words}
@@ -2079,17 +1874,16 @@ export default function AudioFileRecognizer() {
           </div>
         )}
 
-        {/* Debug Log */}
         {debugLog.length > 0 && (
           <div style={{
             marginTop: '0.875rem',
             padding: '0.6rem 0.875rem',
             background: COLORS_UI.bgSurface,
             borderRadius: '12px',
-            fontSize: '0.7rem',
+            fontSize: '0.75rem',
             fontFamily: 'monospace',
             color: COLORS_UI.textTertiary,
-            maxHeight: '70px',
+            maxHeight: '80px',
             overflowY: 'auto',
             border: `1px solid ${COLORS_UI.border}`
           }}>
