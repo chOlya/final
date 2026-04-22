@@ -98,6 +98,15 @@ interface AggregateIPT {
   totalCorrectLetters: number;
 }
 
+// Функция для очистки слова от знаков препинания
+const cleanWordForAnalysis = (word: string): string => {
+  if (!word) return '';
+  return word
+    .trim()
+    .replace(/[.,!?;:()\[\]{}"'-]/g, '')
+    .replace(/\s+/g, '');
+};
+
 const computeWordIPT = (
   expectedWord: string,
   recognizedWord: string | null,
@@ -105,8 +114,11 @@ const computeWordIPT = (
   lambda: number = 0.05
 ): Omit<WordIPT, 'wordIndex' | 'word' | 'startTime' | 'endTime'> => {
 
+  // Очищаем слова от знаков препинания
+  const cleanExpected = cleanWordForAnalysis(expectedWord);
+
   if (!recognizedWord) {
-    const totalLetters = expectedWord.length;
+    const totalLetters = cleanExpected.length;
     return {
       totalLetters,
       recognizedLetters: 0,
@@ -125,8 +137,10 @@ const computeWordIPT = (
     };
   }
 
-  const normExpected = expectedWord.toLowerCase().replace(/[^а-яёa-z]/g, '');
-  const normRecognized = recognizedWord.toLowerCase().replace(/[^а-яёa-z]/g, '');
+  const cleanRecognized = cleanWordForAnalysis(recognizedWord);
+
+  const normExpected = cleanExpected.toLowerCase();
+  const normRecognized = cleanRecognized.toLowerCase();
 
   const expectedLetters = normExpected.split('');
   const recognizedLetters = normRecognized.split('');
@@ -620,6 +634,9 @@ const WordIPTList = ({ words, currentTime, onWordClick }: {
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                 <span style={{ fontWeight: '600' }}>🎯</span> {(word.precision * 100).toFixed(0)}%
               </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <span style={{ fontWeight: '600' }}>🔮</span> {(word.confidence * 100).toFixed(0)}%
+              </span>
             </div>
           </div>
         ))}
@@ -798,7 +815,7 @@ export default function AudioFileRecognizer() {
   const TIME_WINDOW_LOCAL = 2.0;   // локальное окно по времени для улучшения match
   const TIME_WINDOW_GLOBAL = 6.0;  // максимальный допустимый сдвиг по времени для глобального match
 
-  const WORD_RE = /\p{L}+/u;       // “слово” = последовательность букв (любой алфавит)
+  const WORD_RE = /\p{L}+/u;       // "слово" = последовательность букв (любой алфавит)
   const SIM_THRESHOLD_LOCAL = 60;
   const SIM_THRESHOLD_GLOBAL = 70;
 
@@ -882,7 +899,7 @@ export default function AudioFileRecognizer() {
 
     referenceWordsRef.current = allWords;
 
-    // Изначально все слова — в состоянии “ожидание”
+    // Изначально все слова — в состоянии "ожидание"
     const initialColors = Array(allWords.length).fill(COLORS_WORD.PENDING);
     setWordColors(initialColors);
     wordColorsRef.current = initialColors;
@@ -927,12 +944,7 @@ export default function AudioFileRecognizer() {
   // Единая нормализация слов для сравнения
   const normalizeWord = (word: string) => {
     if (!word) return '';
-    return word
-      .toLowerCase()
-      .replace(/[.,!?;:()\[\]{}"'-]/g, '')
-      .replace(/ё/g, 'е')
-      .replace(/\s+/g, ' ')
-      .trim();
+    return cleanWordForAnalysis(word).toLowerCase();
   };
 
   // Похожесть двух слов по символам, на базе diff-match-patch
@@ -1056,7 +1068,7 @@ export default function AudioFileRecognizer() {
   };
 
   // Глобальный fallback: для оставшихся слов ищем кандидата по всей траектории,
-  // но ограничиваемся окном по времени, чтобы “Слово1” не приклеилось к позднему “Слово1”.
+  // но ограничиваемся окном по времени, чтобы "Слово1" не приклеилось к позднему "Слово1".
   const globalFallbackMatch = (
     referenceWords: string[],
     recWords: any[],
@@ -1173,8 +1185,8 @@ export default function AudioFileRecognizer() {
     const mapping: any[] = [];
     const analysis: any[] = [];
     let correct = 0, error = 0, missed = 0;
-    let lastRecIdx = -1;  // предотвращаем “откат” по индексам Vosk
-    let lastTime = 0;     // предотвращаем “откат” по ожидаемому времени
+    let lastRecIdx = -1;  // предотвращаем "откат" по индексам Vosk
+    let lastTime = 0;     // предотвращаем "откат" по ожидаемому времени
 
     for (let i = 0; i < referenceWords.length; i++) {
       const refWord = referenceWords[i];
@@ -1203,7 +1215,7 @@ export default function AudioFileRecognizer() {
         analysis.push({
           position: i + 1,
           expectedTime: expectedTime.toFixed(1),
-          expected: refWord,
+          expected: cleanWord(refWord),
           actual: '(не распознано)',
           similarity: 0,
           status: 'missed',
