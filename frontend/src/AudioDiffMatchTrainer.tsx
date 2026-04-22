@@ -527,10 +527,11 @@ const IPTChart = ({ words, currentTime, onWordClick, audioDuration, statsCounts 
 };
 
 // Компонент для отображения детального списка слов с ИПТ
-const WordIPTList = ({ words, currentTime, onWordClick }: {
+const WordIPTList = ({ words, currentTime, onWordClick, wordTimestamps }: {
   words: WordIPT[];
   currentTime: number;
   onWordClick: (startTime: number) => void;
+  wordTimestamps: any[];
 }) => {
   if (words.length === 0) return null;
 
@@ -559,6 +560,18 @@ const WordIPTList = ({ words, currentTime, onWordClick }: {
     }
   };
 
+  // Получаем распознанное слово для индекса
+  const getRecognizedWord = (wordIndex: number) => {
+    const word = words[wordIndex];
+    if (!word) return null;
+    // Ищем соответствующее слово в wordTimestamps по времени
+    const recognized = wordTimestamps.find(w =>
+      Math.abs(w.start - word.startTime) < 0.1 &&
+      Math.abs(w.end - word.endTime) < 0.1
+    );
+    return recognized ? cleanWord(recognized.word) : '(не распознано)';
+  };
+
   return (
     <div style={{
       background: COLORS_UI.bgCard,
@@ -568,78 +581,88 @@ const WordIPTList = ({ words, currentTime, onWordClick }: {
       boxShadow: `0 4px 12px ${COLORS_UI.shadow}`,
       minWidth: 0,
       overflow: 'hidden',
-      transition: 'all 0.2s ease'
+      transition: 'all 0.2s ease',
+      height: 'fit-content'
     }}>
       <div style={{ fontSize: '0.875rem', fontWeight: '600', color: COLORS_UI.textSecondary, marginBottom: '1.25rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ fontSize: '1.1rem' }}>📋</span>
         Детальный разбор слов
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '460px', overflowY: 'auto' }}>
-        {words.map((word) => (
-          <div
-            key={word.wordIndex}
-            onClick={() => onWordClick(word.startTime)}
-            style={{
-              padding: '0.875rem 1rem',
-              background: currentTime >= word.startTime && currentTime <= word.endTime ? COLORS_UI.primaryLight : COLORS_UI.bgSurface,
-              borderRadius: '16px',
-              borderLeft: `4px solid ${getStatusColor(word.status)}`,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              ...(currentTime >= word.startTime && currentTime <= word.endTime ? {
-                boxShadow: `0 4px 12px ${COLORS_UI.shadowHover}`,
-                transform: 'translateX(4px)'
-              } : {})
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <span style={{
+        {words.map((word) => {
+          const recognizedWord = getRecognizedWord(word.wordIndex);
+          return (
+            <div
+              key={word.wordIndex}
+              onClick={() => onWordClick(word.startTime)}
+              style={{
+                padding: '0.875rem 1rem',
+                background: currentTime >= word.startTime && currentTime <= word.endTime ? COLORS_UI.primaryLight : COLORS_UI.bgSurface,
+                borderRadius: '16px',
+                borderLeft: `4px solid ${getStatusColor(word.status)}`,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                ...(currentTime >= word.startTime && currentTime <= word.endTime ? {
+                  boxShadow: `0 4px 12px ${COLORS_UI.shadowHover}`,
+                  transform: 'translateX(4px)'
+                } : {})
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontWeight: '600',
+                    fontSize: '1rem',
+                    color: COLORS_UI.textPrimary,
+                    background: COLORS_UI.bgCard,
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '8px'
+                  }}>{cleanWord(word.word)}</span>
+                  <span style={{ color: COLORS_UI.textTertiary, fontSize: '0.9rem' }}>→</span>
+                  <span style={{
+                    fontWeight: '500',
+                    fontSize: '1rem',
+                    color: recognizedWord === '(не распознано)' ? COLORS_UI.error : COLORS_UI.warning
+                  }}>{recognizedWord}</span>
+                  <span style={{ fontSize: '0.75rem', color: COLORS_UI.textTertiary, fontFamily: 'monospace' }}>
+                    {word.startTime.toFixed(1)}с – {word.endTime.toFixed(1)}с
+                  </span>
+                </div>
+                <div style={{
+                  padding: '0.25rem 0.875rem',
+                  borderRadius: '20px',
+                  background: `${getStatusColor(word.status)}15`,
+                  fontSize: '0.75rem',
                   fontWeight: '600',
-                  fontSize: '1rem',
-                  color: COLORS_UI.textPrimary,
-                  background: COLORS_UI.bgCard,
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '8px'
-                }}>{cleanWord(word.word)}</span>
-                <span style={{ fontSize: '0.75rem', color: COLORS_UI.textTertiary, fontFamily: 'monospace' }}>
-                  {word.startTime.toFixed(1)}с – {word.endTime.toFixed(1)}с
+                  color: getStatusColor(word.status),
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem'
+                }}>
+                  <span>{getStatusIcon(word.status)}</span>
+                  <span>ИПТ: {word.ipt.toFixed(3)}</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '1.25rem', fontSize: '0.75rem', color: COLORS_UI.textSecondary, flexWrap: 'wrap' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: '600' }}>📖</span> {word.totalLetters} букв
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: '600' }}>✓</span> {word.correctLetters}/{word.recognizedLetters}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: word.errors > 0 ? COLORS_UI.error : COLORS_UI.textTertiary }}>
+                  <span style={{ fontWeight: '600' }}>⚠️</span> {word.errors} ошибок
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: '600' }}>🎯</span> {(word.precision * 100).toFixed(0)}%
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: '600' }}>🔮</span> {(word.confidence * 100).toFixed(0)}%
                 </span>
               </div>
-              <div style={{
-                padding: '0.25rem 0.875rem',
-                borderRadius: '20px',
-                background: `${getStatusColor(word.status)}15`,
-                fontSize: '0.75rem',
-                fontWeight: '600',
-                color: getStatusColor(word.status),
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.375rem'
-              }}>
-                <span>{getStatusIcon(word.status)}</span>
-                <span>ИПТ: {word.ipt.toFixed(3)}</span>
-              </div>
             </div>
-            <div style={{ display: 'flex', gap: '1.25rem', fontSize: '0.75rem', color: COLORS_UI.textSecondary, flexWrap: 'wrap' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <span style={{ fontWeight: '600' }}>📖</span> {word.totalLetters} букв
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <span style={{ fontWeight: '600' }}>✓</span> {word.correctLetters}/{word.recognizedLetters}
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: word.errors > 0 ? COLORS_UI.error : COLORS_UI.textTertiary }}>
-                <span style={{ fontWeight: '600' }}>⚠️</span> {word.errors} ошибок
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <span style={{ fontWeight: '600' }}>🎯</span> {(word.precision * 100).toFixed(0)}%
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <span style={{ fontWeight: '600' }}>🔮</span> {(word.confidence * 100).toFixed(0)}%
-              </span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -664,7 +687,8 @@ const RecognizedTextBlock = ({ transcription, wordTimestamps, onWordClick }: {
       padding: '1.5rem',
       border: `1px solid ${COLORS_UI.border}`,
       boxShadow: `0 4px 12px ${COLORS_UI.shadow}`,
-      transition: 'all 0.2s ease'
+      transition: 'all 0.2s ease',
+      height: 'fit-content'
     }}>
       <div style={{
         fontSize: '0.875rem',
@@ -695,7 +719,7 @@ const RecognizedTextBlock = ({ transcription, wordTimestamps, onWordClick }: {
         background: COLORS_UI.bgSurface,
         borderRadius: '16px',
         padding: '1rem',
-        maxHeight: '200px',
+        maxHeight: '400px',
         overflowY: 'auto',
         fontSize: '1rem',
         lineHeight: '1.6',
@@ -1450,7 +1474,7 @@ export default function AudioFileRecognizer() {
                 word: word.word,
                 start: word.start || 0,
                 end: word.end || 0,
-                confidence: word.confidence || 0.85
+                confidence: word.confidence || word.conf || 0.85
               });
             });
           }
@@ -1528,7 +1552,7 @@ export default function AudioFileRecognizer() {
                 word: word.word,
                 start: (word.start || 0) + chunk.startTime,
                 end: (word.end || 0) + chunk.startTime,
-                confidence: word.confidence || 0.85,
+                confidence: word.confidence || word.conf || 0.85,
                 chunkIndex
               });
             });
@@ -1806,7 +1830,7 @@ export default function AudioFileRecognizer() {
 
       if (selectedModel === 'whisper') {
         // Whisper - отправляем весь файл целиком
-        setRecognitionStatus('Распознавание речи (Whisper)...');
+        setRecognitionStatus('Распознавание речи');
         setProgress(10);
         rawResults = await processFullAudioWhisper(audioBuffer);
       } else {
@@ -1956,7 +1980,6 @@ export default function AudioFileRecognizer() {
           }}>
             Речевой тренажер
           </h1>
-          <div style={{ width: '80px', height: '4px', background: COLORS_UI.primary, borderRadius: '2px' }} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '1.5rem', marginBottom: '1.5rem', alignItems: 'start' }}>
@@ -2165,97 +2188,20 @@ export default function AudioFileRecognizer() {
           />
         )}
 
-        {(!isProcessing && wordAnalysis.length > 0) && (
+        {(!isProcessing && aggregateIPT && aggregateIPT.words.length > 0) && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-
-            <div style={{
-              background: COLORS_UI.bgCard,
-              borderRadius: '24px',
-              padding: '1.5rem',
-              border: `1px solid ${COLORS_UI.border}`,
-              boxShadow: `0 4px 12px ${COLORS_UI.shadow}`,
-              minWidth: 0,
-              overflow: 'hidden',
-              transition: 'all 0.2s ease'
-            }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: '600', color: COLORS_UI.textSecondary, marginBottom: '1.25rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.1rem' }}>🔍</span>
-                Детальный анализ произношения
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '460px', overflowY: 'auto' }}>
-                {wordAnalysis.map((item, i) => {
-                  const expectedTimeSec = parseFloat(item.expectedTime);
-                  const actualTimeSec = item.actualTime ? parseFloat(item.actualTime) : null;
-                  const timeDiffSec = item.timeDiff ? parseFloat(item.timeDiff) : null;
-                  return (
-                    <div
-                      key={i}
-                      style={{
-                        padding: '0.875rem 1rem',
-                        background: COLORS_UI.bgSurface,
-                        borderRadius: '16px',
-                        borderLeft: `4px solid ${item.color}`,
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.75rem', color: COLORS_UI.textSecondary }}>
-                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                          <span style={{ fontWeight: '600', color: COLORS_UI.textPrimary }}>#{item.position}</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                            <span>⏱️</span> {expectedTimeSec.toFixed(1)}с
-                          </span>
-                          {actualTimeSec !== null && (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                              <span>→</span> {actualTimeSec.toFixed(1)}с
-                            </span>
-                          )}
-                          {timeDiffSec !== null && (
-                            <span style={{
-                              color: Math.abs(timeDiffSec) > 0.5 ? COLORS_UI.error : COLORS_UI.success,
-                              fontWeight: '500'
-                            }}>
-                              {timeDiffSec > 0 ? '+' : ''}{timeDiffSec.toFixed(1)}с
-                            </span>
-                          )}
-                        </div>
-                        <span style={{
-                          fontWeight: '600',
-                          padding: '0.25rem 0.75rem',
-                          borderRadius: '16px',
-                          background: `${item.color}15`,
-                          color: item.color,
-                          fontSize: '0.75rem'
-                        }}>
-                          {item.similarity.toFixed(0)}%
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.95rem', flexWrap: 'wrap', alignItems: 'baseline' }}>
-                        <span style={{ color: COLORS_UI.textPrimary, fontWeight: '600' }}>📖 {cleanWord(item.expected)}</span>
-                        <span style={{ color: COLORS_UI.textTertiary, fontSize: '0.875rem' }}>→</span>
-                        <span style={{ color: COLORS_UI.warning, fontWeight: '500' }}>🎤 {cleanWord(item.actual)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {aggregateIPT && aggregateIPT.words.length > 0 && (
-              <WordIPTList
-                words={aggregateIPT.words}
-                currentTime={audioCurrentTime}
-                onWordClick={scrollToWord}
-              />
-            )}
+            <WordIPTList
+              words={aggregateIPT.words}
+              currentTime={audioCurrentTime}
+              onWordClick={scrollToWord}
+              wordTimestamps={wordTimestamps}
+            />
+            <RecognizedTextBlock
+              transcription={transcription}
+              wordTimestamps={wordTimestamps}
+              onWordClick={scrollToWord}
+            />
           </div>
-        )}
-
-        {(!isProcessing && (transcription || wordTimestamps.length > 0)) && (
-          <RecognizedTextBlock
-            transcription={transcription}
-            wordTimestamps={wordTimestamps}
-            onWordClick={scrollToWord}
-          />
         )}
 
         <style>{`
