@@ -211,8 +211,8 @@ const computeWordIPT = (
 
   let status: WordIPT['status'];
   if (ipt >= 0.8) status = 'perfect';
-  else if (ipt >= 0.6) status = 'good';
-  else if (ipt >= 0.4) status = 'medium';
+  else if (ipt >= 0.5) status = 'good';
+  else if (ipt >= 0.3) status = 'medium';
   else if (ipt >= 0.2) status = 'poor';
   else status = 'critical';
 
@@ -383,20 +383,29 @@ const IPTChart = ({ words, currentTime, onWordClick, audioDuration, statsCounts 
           <span style={{
             fontSize: '1.25rem',
             fontWeight: '700',
-            color: avgIPT >= 0.6 ? COLORS_UI.success : avgIPT >= 0.4 ? COLORS_UI.warning : COLORS_UI.error
+            color: avgIPT >= 0.8 ? COLORS_UI.success :
+              avgIPT >= 0.5 ? COLORS_UI.primary :
+                avgIPT >= 0.3 ? COLORS_UI.warning :
+                  COLORS_UI.error
           }}>
             {avgIPT.toFixed(3)}
           </span>
-          <span style={{
+          {/* <span style={{
             fontSize: '0.75rem',
             padding: '0.25rem 0.75rem',
             borderRadius: '20px',
-            background: `${avgIPT >= 0.6 ? COLORS_UI.success : avgIPT >= 0.4 ? COLORS_UI.warning : COLORS_UI.error}15`,
-            color: avgIPT >= 0.6 ? COLORS_UI.success : avgIPT >= 0.4 ? COLORS_UI.warning : COLORS_UI.error,
+            background: `${avgIPT >= 0.8 ? COLORS_UI.success :
+              avgIPT >= 0.5 ? COLORS_UI.primary :
+                avgIPT >= 0.3 ? COLORS_UI.warning :
+                  COLORS_UI.error}15`,
+            color: avgIPT >= 0.8 ? COLORS_UI.success :
+              avgIPT >= 0.5 ? COLORS_UI.primary :
+                avgIPT >= 0.3 ? COLORS_UI.warning :
+                  COLORS_UI.error,
             fontWeight: '500'
           }}>
             {((avgIPT + 0.5) / 1.5 * 100).toFixed(0)}%
-          </span>
+          </span> */}
         </div>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           {(['perfect', 'good', 'medium', 'poor', 'critical'] as const).map(status => {
@@ -1837,7 +1846,7 @@ export default function AudioFileRecognizer() {
         // Vosk и Wav2Vec2 - разбиваем на чанки
         setRecognitionStatus('Разбиение аудио на чанки...');
         const chunks = splitAudioIntoChunks(audioBuffer, CHUNK_DURATION, 1.0);
-        setRecognitionStatus(`Распознавание речи (${selectedModel.toUpperCase()})...`);
+        setRecognitionStatus(`Распознавание речи`);
         rawResults = await processAllChunks(chunks);
       }
 
@@ -2119,11 +2128,11 @@ export default function AudioFileRecognizer() {
                       <div style={{ width: `${progress}%`, height: '100%', background: COLORS_UI.primary, transition: 'width 0.3s ease', borderRadius: '3px' }} />
                     </div>
                   </div>
-                  {totalSegments > 0 && (
+                  {/* {totalSegments > 0 && (
                     <div style={{ fontSize: '0.75rem', color: COLORS_UI.textTertiary, marginTop: '0.5rem', fontWeight: '500' }}>
                       {currentSegment} / {totalSegments}
                     </div>
-                  )}
+                  )} */}
                 </>
               ) : file ? (
                 <>
@@ -2143,7 +2152,6 @@ export default function AudioFileRecognizer() {
                     <path d="M12 4v12" stroke="currentColor" fill="none" strokeLinecap="round" />
                   </svg>
                   <div style={{ fontSize: '0.95rem', fontWeight: '500', color: COLORS_UI.textSecondary }}>Загрузить аудио</div>
-                  <div style={{ fontSize: '0.75rem', color: COLORS_UI.textTertiary, marginTop: '0.25rem' }}>MP3, WAV, M4A</div>
                 </>
               )}
             </div>
