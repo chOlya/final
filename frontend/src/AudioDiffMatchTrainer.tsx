@@ -378,7 +378,7 @@ const IPTChart = ({ words, currentTime, onWordClick, audioDuration, statsCounts 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem' }}>
           <span style={{ fontSize: '0.875rem', fontWeight: '600', color: COLORS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Пословный ИПТ
+            ИПТ
           </span>
           <span style={{
             fontSize: '1.25rem',
@@ -591,13 +591,14 @@ const WordIPTList = ({ words, currentTime, onWordClick, wordTimestamps }: {
       minWidth: 0,
       overflow: 'hidden',
       transition: 'all 0.2s ease',
-      height: 'fit-content'
+      height: '500px',
+      display: 'flex',
+      flexDirection: 'column'
     }}>
       <div style={{ fontSize: '0.875rem', fontWeight: '600', color: COLORS_UI.textSecondary, marginBottom: '1.25rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span style={{ fontSize: '1.1rem' }}>📋</span>
         Детальный разбор слов
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '460px', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', flex: 1, overflowY: 'auto' }}>
         {words.map((word) => {
           const recognizedWord = getRecognizedWord(word.wordIndex);
           return (
@@ -654,19 +655,17 @@ const WordIPTList = ({ words, currentTime, onWordClick, wordTimestamps }: {
               </div>
               <div style={{ display: 'flex', gap: '1.25rem', fontSize: '0.75rem', color: COLORS_UI.textSecondary, flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: '600' }}>📖</span> {word.totalLetters} букв
+                  {word.totalLetters} букв
+                  <span style={{ fontWeight: '600' }}>{(word.precision * 100).toFixed(0)}%</span>
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   <span style={{ fontWeight: '600' }}>✓</span> {word.correctLetters}/{word.recognizedLetters}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: word.errors > 0 ? COLORS_UI.error : COLORS_UI.textTertiary }}>
-                  <span style={{ fontWeight: '600' }}>⚠️</span> {word.errors} ошибок
+                  {word.errors} ошибок
                 </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: '600' }}>🎯</span> {(word.precision * 100).toFixed(0)}%
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: '600' }}>🔮</span> {(word.confidence * 100).toFixed(0)}%
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: COLORS_UI.textTertiary }}>
+                  <span style={{ fontWeight: '600' }}>conf</span> {(word.confidence * 100).toFixed(0)}%
                 </span>
               </div>
             </div>
@@ -697,7 +696,9 @@ const RecognizedTextBlock = ({ transcription, wordTimestamps, onWordClick }: {
       border: `1px solid ${COLORS_UI.border}`,
       boxShadow: `0 4px 12px ${COLORS_UI.shadow}`,
       transition: 'all 0.2s ease',
-      height: 'fit-content'
+      height: '500px',
+      display: 'flex',
+      flexDirection: 'column'
     }}>
       <div style={{
         fontSize: '0.875rem',
@@ -710,7 +711,6 @@ const RecognizedTextBlock = ({ transcription, wordTimestamps, onWordClick }: {
         alignItems: 'center',
         gap: '0.5rem'
       }}>
-        <span style={{ fontSize: '1.1rem' }}>🎤</span>
         Распознанный текст
         <span style={{
           marginLeft: 'auto',
@@ -728,7 +728,7 @@ const RecognizedTextBlock = ({ transcription, wordTimestamps, onWordClick }: {
         background: COLORS_UI.bgSurface,
         borderRadius: '16px',
         padding: '1rem',
-        maxHeight: '400px',
+        flex: 1,
         overflowY: 'auto',
         fontSize: '1rem',
         lineHeight: '1.6',
@@ -1977,7 +1977,7 @@ export default function AudioFileRecognizer() {
       padding: 0,
       margin: 0
     }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '1rem' }}>
 
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{
@@ -1991,9 +1991,9 @@ export default function AudioFileRecognizer() {
           </h1>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '1.5rem', marginBottom: '1.5rem', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '1.5rem', marginBottom: '1.5rem', alignItems: 'stretch' }}>
 
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             {!file ? (
               <div style={{
                 background: COLORS_UI.bgCard,
@@ -2001,7 +2001,10 @@ export default function AudioFileRecognizer() {
                 padding: '1.5rem',
                 border: `1px solid ${COLORS_UI.border}`,
                 boxShadow: `0 4px 12px ${COLORS_UI.shadow}`,
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column'
               }}>
                 <label style={{
                   display: 'block',
@@ -2028,7 +2031,7 @@ export default function AudioFileRecognizer() {
                     color: COLORS_UI.textPrimary,
                     background: isProcessing ? COLORS_UI.bgSurface : COLORS_UI.bgCard,
                     resize: 'vertical',
-                    minHeight: '220px',
+                    flex: 1,
                     outline: 'none',
                     fontFamily: 'inherit',
                     boxSizing: 'border-box',
@@ -2047,7 +2050,10 @@ export default function AudioFileRecognizer() {
                 padding: '1.5rem',
                 border: `1px solid ${COLORS_UI.border}`,
                 boxShadow: `0 4px 12px ${COLORS_UI.shadow}`,
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
                   <div style={{ fontSize: '0.875rem', fontWeight: '600', color: COLORS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -2061,19 +2067,20 @@ export default function AudioFileRecognizer() {
                   display: 'flex',
                   flexWrap: 'wrap',
                   gap: '0.75rem',
-                  maxHeight: '340px',
+                  flex: 1,
                   overflowY: 'auto',
-                  overflowX: 'hidden'
+                  overflowX: 'hidden',
+                  alignContent: 'flex-start'
                 }}>
                   {referenceWordsRef.current.map((word, index) => {
                     const color = wordColors[index] || COLORS_WORD.PENDING;
                     const styles: Record<string, React.CSSProperties> = {
-                      [COLORS_WORD.CURRENT]: { background: `${COLORS_UI.current}12`, color: COLORS_UI.current, borderColor: `${COLORS_UI.current}40`, fontWeight: 600, fontSize: '1rem', padding: '0.5rem 1rem' },
-                      [COLORS_WORD.CORRECT]: { background: `${COLORS_UI.success}12`, color: COLORS_UI.success, borderColor: `${COLORS_UI.success}30`, fontSize: '0.95rem', padding: '0.4rem 0.875rem' },
-                      [COLORS_WORD.GOOD]: { background: `${COLORS_UI.primary}12`, color: COLORS_UI.primary, borderColor: `${COLORS_UI.primary}30`, fontSize: '0.95rem', padding: '0.4rem 0.875rem' },
-                      [COLORS_WORD.ERROR]: { background: `${COLORS_UI.warning}12`, color: '#9a3412', borderColor: `${COLORS_UI.warning}30`, fontSize: '0.95rem', padding: '0.4rem 0.875rem' },
-                      [COLORS_WORD.MISSED]: { background: `${COLORS_UI.error}12`, color: '#991b1b', borderColor: `${COLORS_UI.error}30`, fontSize: '0.95rem', padding: '0.4rem 0.875rem' },
-                      [COLORS_WORD.PENDING]: { background: COLORS_UI.bgSurface, color: COLORS_UI.textTertiary, borderColor: COLORS_UI.border, fontSize: '0.95rem', padding: '0.4rem 0.875rem' }
+                      [COLORS_WORD.CURRENT]: { background: `${COLORS_UI.current}12`, color: COLORS_UI.current, borderColor: `${COLORS_UI.current}40`, fontWeight: 600, fontSize: '1rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+                      [COLORS_WORD.CORRECT]: { background: `${COLORS_UI.success}12`, color: COLORS_UI.success, borderColor: `${COLORS_UI.success}30`, fontSize: '0.95rem', padding: '0.4rem 0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+                      [COLORS_WORD.GOOD]: { background: `${COLORS_UI.primary}12`, color: COLORS_UI.primary, borderColor: `${COLORS_UI.primary}30`, fontSize: '0.95rem', padding: '0.4rem 0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+                      [COLORS_WORD.ERROR]: { background: `${COLORS_UI.warning}12`, color: '#9a3412', borderColor: `${COLORS_UI.warning}30`, fontSize: '0.95rem', padding: '0.4rem 0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+                      [COLORS_WORD.MISSED]: { background: `${COLORS_UI.error}12`, color: '#991b1b', borderColor: `${COLORS_UI.error}30`, fontSize: '0.95rem', padding: '0.4rem 0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+                      [COLORS_WORD.PENDING]: { background: COLORS_UI.bgSurface, color: COLORS_UI.textTertiary, borderColor: COLORS_UI.border, fontSize: '0.95rem', padding: '0.4rem 0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }
                     };
                     return (
                       <span
@@ -2197,7 +2204,7 @@ export default function AudioFileRecognizer() {
         )}
 
         {(!isProcessing && aggregateIPT && aggregateIPT.words.length > 0) && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem', alignItems: 'stretch' }}>
             <WordIPTList
               words={aggregateIPT.words}
               currentTime={audioCurrentTime}
